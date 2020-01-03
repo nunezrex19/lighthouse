@@ -36,6 +36,17 @@ describe('Icons helper', () => {
       assert.equal(icons.doExist(manifest.value), false);
     });
 
+    it('fails when a manifest contains no fetchable icons', () => {
+      const manifestSrc = JSON.stringify({
+        icons: [{
+          src: 'icon.png',
+        }],
+      });
+      const manifest = manifestParser(manifestSrc, EXAMPLE_MANIFEST_URL, EXAMPLE_DOC_URL);
+      manifest.value.icons.value[0].warning = 'Error fetching icon';
+      assert.equal(icons.doExist(manifest.value), false);
+    });
+
     it('succeed when a manifest contains icons', () => {
       const manifestSrc = JSON.stringify({
         icons: [{
