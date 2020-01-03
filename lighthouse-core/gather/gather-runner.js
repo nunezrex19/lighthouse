@@ -536,7 +536,26 @@ class GatherRunner {
   static async getWebAppManifest(passContext) {
     const response = await passContext.driver.getAppManifest();
     if (!response) return null;
-    return manifestParser(response.data, response.url, passContext.url);
+    const manifest = manifestParser(response.data, response.url, passContext.url);
+
+    if (manifest.value && Array.isArray(manifest.value.icons.value)) {
+      const iconsToFetch = manifest.value.icons.value
+        .filter(icon => icon.value.src && icon.value.src.value);
+      const fetchPromises = iconsToFetch.map(async icon => {
+        /** @param {string} url */
+        async function isOk(url) {
+          const response = await fetch(url);
+          return response.ok;
+        }
+        const expression = `(${isOk.toString()})(${JSON.stringify(icon.value.src.value)})`;
+        if (!await passContext.driver.evaluateAsync(expression, {useIsolation: true})) {
+          icon.warning = 'Error fetching icon';
+        }
+      });
+      await Promise.all(fetchPromises);
+    }
+
+    return manifest;
   }
 
   /**

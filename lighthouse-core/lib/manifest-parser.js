@@ -271,7 +271,7 @@ function parseIcon(raw, manifestUrl) {
     sizes = {...parsedSizes, value: undefined};
   }
 
-  return {
+  const result = {
     raw,
     value: {
       src,
@@ -281,6 +281,10 @@ function parseIcon(raw, manifestUrl) {
     },
     warning: undefined,
   };
+  // Hack to make warning be `string|undefined`, even though this function will always
+  // return undefined. Can be removed if Manifest is explicitly typed (see artifacts.d.ts).
+  const warning = /** @type {string=} */(undefined);
+  return {...result, warning};
 }
 
 /**

@@ -8,6 +8,14 @@
 const URL = require('./url-shim.js');
 
 /**
+ * Filter out icons that could not be fetched in the page.
+ * @param {NonNullable<LH.Artifacts.Manifest['value']>} manifest
+ */
+function getFetchableIcons(manifest) {
+  return manifest.icons.value.filter(icon => !icon.warning);
+}
+
+/**
  * @param {NonNullable<LH.Artifacts.Manifest['value']>} manifest
  * @return {boolean} Does the manifest have any icons?
  */
@@ -15,7 +23,7 @@ function doExist(manifest) {
   if (!manifest || !manifest.icons) {
     return false;
   }
-  if (manifest.icons.value.length === 0) {
+  if (getFetchableIcons(manifest).length === 0) {
     return false;
   }
   return true;
@@ -29,7 +37,7 @@ function doExist(manifest) {
 function pngSizedAtLeast(sizeRequirement, manifest) {
   // An icon can be provided for a single size, or for multiple sizes.
   // To handle both, we flatten all found sizes into a single array.
-  const iconValues = manifest.icons.value;
+  const iconValues = getFetchableIcons(manifest);
   /** @type {Array<string>} */
   const flattenedSizes = [];
   iconValues

@@ -101,6 +101,22 @@ module.exports = [
     },
   },
   {
+    artifacts: {
+      WebAppManifest: {
+        value: {
+          icons: {
+            value: [
+              {value: {src: {value: 'http://localhost:10503/launcher-icon-0-75x.png'}}, warning: 'Error fetching icon'},
+              {value: {src: {value: 'http://localhost:10503/launcher-icon-1x.png'}}, warning: 'Error fetching icon'},
+              {value: {src: {value: 'http://localhost:10503/launcher-icon-1-5x.png'}}, warning: 'Error fetching icon'},
+              {value: {src: {value: 'http://localhost:10503/launcher-icon-2x.png'}}, warning: 'Error fetching icon'},
+              {value: {src: {value: 'http://localhost:10503/launcher-icon-3x.png'}}, warning: 'Error fetching icon'},
+              {value: {src: {value: 'http://localhost:10503/launcher-icon-4x.png'}}, warning: undefined},
+            ],
+          },
+        },
+      },
+    },
     lhr: {
       requestedUrl: 'http://localhost:10503/offline-ready.html',
       finalUrl: 'http://localhost:10503/offline-ready.html',
