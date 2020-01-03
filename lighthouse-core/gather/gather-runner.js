@@ -542,7 +542,7 @@ class GatherRunner {
     // Add a warning for icons that aren't fetchable.
     if (manifest.value && Array.isArray(manifest.value.icons.value)) {
       const iconsToFetch = manifest.value.icons.value
-        .filter(icon => icon.value.src && icon.value.src.value);
+        .filter(icon => icon.value.src.value);
       const fetchPromises = iconsToFetch.map(async icon => {
         const expression = `(${pageFunctions.fetchIsOkString})(
           ${JSON.stringify(icon.value.src.value)}
