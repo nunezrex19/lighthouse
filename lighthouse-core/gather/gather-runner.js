@@ -13,6 +13,7 @@ const NetworkAnalyzer = require('../lib/dependency-graph/simulator/network-analy
 const NetworkRecorder = require('../lib/network-recorder.js');
 const constants = require('../config/constants.js');
 const i18n = require('../lib/i18n/i18n.js');
+const pageFunctions = require('../lib/page-functions.js');
 
 /** @typedef {import('../gather/driver.js')} Driver */
 
@@ -538,16 +539,14 @@ class GatherRunner {
     if (!response) return null;
     const manifest = manifestParser(response.data, response.url, passContext.url);
 
+    // Add a warning for icons that aren't fetchable.
     if (manifest.value && Array.isArray(manifest.value.icons.value)) {
       const iconsToFetch = manifest.value.icons.value
         .filter(icon => icon.value.src && icon.value.src.value);
       const fetchPromises = iconsToFetch.map(async icon => {
-        /** @param {string} url */
-        async function isOk(url) {
-          const response = await fetch(url);
-          return response.ok;
-        }
-        const expression = `(${isOk.toString()})(${JSON.stringify(icon.value.src.value)})`;
+        const expression = `(${pageFunctions.fetchIsOkString})(
+          ${JSON.stringify(icon.value.src.value)}
+        )`;
         if (!await passContext.driver.evaluateAsync(expression, {useIsolation: true})) {
           icon.warning = 'Error fetching icon';
         }

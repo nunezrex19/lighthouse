@@ -6,7 +6,7 @@
 // @ts-nocheck
 'use strict';
 
-/* global window document Node ShadowRoot */
+/* global window document Node ShadowRoot fetch */
 
 /**
  * Helper functions that are passed by `toString()` by Driver to be evaluated in target page.
@@ -303,6 +303,12 @@ function getNodeLabel(node) {
   return tagName;
 }
 
+/** @param {string} url */
+async function fetchIsOk(url) {
+  const response = await fetch(url);
+  return response.ok;
+}
+
 module.exports = {
   wrapRuntimeEvalErrorInBrowserString: wrapRuntimeEvalErrorInBrowser.toString(),
   registerPerformanceObserverInPageString: registerPerformanceObserverInPage.toString(),
@@ -318,4 +324,5 @@ module.exports = {
   getNodeLabel: getNodeLabel,
   getNodeLabelString: getNodeLabel.toString(),
   isPositionFixedString: isPositionFixed.toString(),
+  fetchIsOkString: fetchIsOk.toString(),
 };
