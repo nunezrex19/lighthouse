@@ -73,18 +73,15 @@ for (const [inFilename, outFilename] of Object.entries(files)) {
     substituteNode(hint, node) {
       let removeNode = false;
 
-      if (ts.isMethodDeclaration(node)) {
-        // @ts-ignore
-        if (methodsToRemove.includes(node.name.text)) {
-          removeNode = true;
-        }
+      if (ts.isMethodDeclaration(node) &&
+          // Make typescript happy.
+          !ts.isComputedPropertyName(node.name) &&
+          methodsToRemove.includes(node.name.text)) {
+        removeNode = true;
       }
 
-      if (ts.isClassDeclaration(node)) {
-        // @ts-ignore
-        if (classesToRemove.includes(node.name.text)) {
-          removeNode = true;
-        }
+      if (ts.isClassDeclaration(node) && node.name && classesToRemove.includes(node.name.text)) {
+        removeNode = true;
       }
 
       if (ts.isExpressionStatement(node)) {
