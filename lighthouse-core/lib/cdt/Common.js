@@ -5,6 +5,8 @@
  */
 'use strict';
 
+/** @fileoverview Needed for the generated/SourceMap.js file */
+
 const Common = {
   console,
 };
