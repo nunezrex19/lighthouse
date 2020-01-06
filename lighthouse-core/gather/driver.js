@@ -113,9 +113,8 @@ class Driver {
       // Not mandatory but not used much
       'blink.console',
 
-      // Most of the events we need are from these three
+      // Most of the events we need are from these two categories
       'devtools.timeline',
-      'devtools.timeline.async',
       'disabled-by-default-devtools.timeline',
 
       // Up to 450 (https://goo.gl/rBfhn4) JPGs added to the trace
