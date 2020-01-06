@@ -65,7 +65,6 @@ function computeGeneratedFileSizes(map, content) {
       }
       mappingLength = lastColNum - colNum;
     } else {
-      // TODO Buffer.byteLength?
       // Add +1 to account for the newline.
       mappingLength = line.length - colNum + 1;
     }
