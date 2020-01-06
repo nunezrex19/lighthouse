@@ -28,14 +28,14 @@ function computeGeneratedFileSizes(map, content) {
   // denotes nothing is mapped.
   const failureResult = {files: {}, unmappedBytes, totalBytes};
 
-  // @ts-ignore: This function is added in SDK.js
+  // @ts-ignore: This function is added in SDK.js. This will eventually be added to CDT.
   map.computeLastGeneratedColumns();
 
   for (const mapping of map.mappings()) {
     const source = mapping.sourceURL;
     const lineNum = mapping.lineNumber;
     const colNum = mapping.columnNumber;
-    // @ts-ignore: `lastColumnNumber` is not on types yet.
+    // @ts-ignore: `lastColumnNumber` is not on types yet. This will eventually be added to CDT.
     const lastColNum = /** @type {number=} */ (mapping.lastColumnNumber);
 
     // Webpack sometimes emits null mappings.
@@ -106,8 +106,15 @@ class JSBundles {
 
       const compiledUrl = SourceMap.scriptUrl || 'compiled.js';
       const mapUrl = SourceMap.sourceMapUrl || 'compiled.js.map';
-      // @ts-ignore: CDT has some funny ideas about what properties of a source map are required.
-      const map = new SDK.TextSourceMap(compiledUrl, mapUrl, rawMap);
+      // CDT expects undefined properties to be explicit.
+      const rawMapForCdt = {
+        file: undefined,
+        names: undefined,
+        sections: undefined,
+        sourceRoot: undefined,
+        ...rawMap,
+      };
+      const map = new SDK.TextSourceMap(compiledUrl, mapUrl, rawMapForCdt);
 
       const content = scriptElement && scriptElement.content ? scriptElement.content : '';
       const sizes = computeGeneratedFileSizes(map, content);
