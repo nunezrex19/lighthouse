@@ -61,9 +61,21 @@ for (const [inFilename, outFilename] of Object.entries(files)) {
     // Delete all the export statements.
     'exports.',
   ];
+  // Complicated expressions are hard detect with the TS lib, so instead work with the raw code.
+  const rawCodeToReplace = {
+    // Similar to the reason for removing `url += Common.UIString('? [sm]')`.
+    // The entries in `.mappings` should not have their url property modified.
+    'Common.ParsedURL.completeURL(this._baseURL, href)': `''`,
+  };
 
   // Verify that all the above code is present.
-  for (const codeFragment of [...classesToRemove, ...methodsToRemove, ...expressionsToRemove]) {
+  const codeFragments = [
+    ...classesToRemove,
+    ...methodsToRemove,
+    ...expressionsToRemove,
+    ...Object.values(rawCodeToReplace),
+  ];
+  for (const codeFragment of codeFragments) {
     if (!codeTranspiledToCommonJS.includes(codeFragment)) {
       throw new Error(`did not find expected code fragment: ${codeFragment}`);
     }
@@ -107,11 +119,9 @@ for (const [inFilename, outFilename] of Object.entries(files)) {
     sourceFilePrinted += printer.printNode(ts.EmitHint.Unspecified, node, sourceFile) + '\n';
   });
 
-  // Similar to the reason for removing
-  // `url += Common.UIString('? [sm]')` (see comment above). The entries in `.mappings` should
-  // not have their url property modified.
-  sourceFilePrinted =
-    sourceFilePrinted.replace('Common.ParsedURL.completeURL(this._baseURL, href)', `''`);
+  for (const [code, replacement] of Object.entries(rawCodeToReplace)) {
+    sourceFilePrinted = sourceFilePrinted.replace(code, replacement);
+  }
 
   const modifiedFile = [
     '// @ts-nocheck\n',
