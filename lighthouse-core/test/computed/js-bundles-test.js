@@ -244,16 +244,17 @@ describe('JSBundles computed artifact', () => {
       entry.sourceURL, entry.sourceLineNumber, entry.sourceColumnNumber)).toBe(entry);
   });
 
-  it('handles faulty maps', async () => {
+  describe('fault tolerance', () => {
     let data;
     let map;
     let content;
 
-    function init() {
+    beforeEach(() => {
       data = load('foo.min');
       map = data.map;
       content = data.content;
-    }
+    });
+
     async function test() {
       const networkRecords = [{url: 'https://example.com/foo.min.js'}];
       const artifacts = {
@@ -268,91 +269,95 @@ describe('JSBundles computed artifact', () => {
       return {sizes: result.sizes, entry};
     }
 
-    init();
-    map.mappings = 'blahblah blah';
-    expect(await test()).toMatchInlineSnapshot(`
-      Object {
-        "entry": SourceMapEntry {
-          "columnNumber": -13,
-          "lineNumber": 0,
-          "name": "r",
-          "sourceColumnNumber": -418,
-          "sourceLineNumber": -432,
-          "sourceURL": undefined,
-        },
-        "sizes": Object {
-          "files": Object {},
-          "totalBytes": 718,
-          "unmappedBytes": 718,
-        },
-      }
-    `);
-
-    init();
-    content = 'blahblah blah';
-    expect(await test()).toMatchInlineSnapshot(`
-      Object {
-        "entry": SourceMapEntry {
-          "columnNumber": 644,
-          "lastColumnNumber": 648,
-          "lineNumber": 0,
-          "name": "bar",
-          "sourceColumnNumber": 15,
-          "sourceLineNumber": 3,
-          "sourceURL": "src/foo.js",
-        },
-        "sizes": Object {
-          "files": Object {},
-          "totalBytes": 13,
-          "unmappedBytes": 13,
-        },
-      }
-    `);
-
-    init();
-    content = '';
-    expect(await test()).toMatchInlineSnapshot(`
-      Object {
-        "entry": SourceMapEntry {
-          "columnNumber": 644,
-          "lastColumnNumber": 648,
-          "lineNumber": 0,
-          "name": "bar",
-          "sourceColumnNumber": 15,
-          "sourceLineNumber": 3,
-          "sourceURL": "src/foo.js",
-        },
-        "sizes": Object {
-          "files": Object {},
-          "totalBytes": 0,
-          "unmappedBytes": 0,
-        },
-      }
-    `);
-
-    init();
-    map.names = ['blah'];
-    expect(await test()).toMatchInlineSnapshot(`
-      Object {
-        "entry": SourceMapEntry {
-          "columnNumber": 644,
-          "lastColumnNumber": 648,
-          "lineNumber": 0,
-          "name": undefined,
-          "sourceColumnNumber": 15,
-          "sourceLineNumber": 3,
-          "sourceURL": "src/foo.js",
-        },
-        "sizes": Object {
-          "files": Object {
-            "node_modules/browser-pack/_prelude.js": 480,
-            "src/bar.js": 104,
-            "src/foo.js": 98,
+    it('1', async () => {
+      map.mappings = 'blahblah blah';
+      expect(await test()).toMatchInlineSnapshot(`
+        Object {
+          "entry": SourceMapEntry {
+            "columnNumber": -13,
+            "lineNumber": 0,
+            "name": "r",
+            "sourceColumnNumber": -418,
+            "sourceLineNumber": -432,
+            "sourceURL": undefined,
           },
-          "totalBytes": 718,
-          "unmappedBytes": 36,
-        },
-      }
-    `);
+          "sizes": Object {
+            "files": Object {},
+            "totalBytes": 718,
+            "unmappedBytes": 718,
+          },
+        }
+      `);
+    });
+
+    it('2', async () => {
+      content = 'blahblah blah';
+      expect(await test()).toMatchInlineSnapshot(`
+        Object {
+          "entry": SourceMapEntry {
+            "columnNumber": 644,
+            "lastColumnNumber": 648,
+            "lineNumber": 0,
+            "name": "bar",
+            "sourceColumnNumber": 15,
+            "sourceLineNumber": 3,
+            "sourceURL": "src/foo.js",
+          },
+          "sizes": Object {
+            "files": Object {},
+            "totalBytes": 13,
+            "unmappedBytes": 13,
+          },
+        }
+      `);
+    });
+
+    it('3', async () => {
+      content = '';
+      expect(await test()).toMatchInlineSnapshot(`
+        Object {
+          "entry": SourceMapEntry {
+            "columnNumber": 644,
+            "lastColumnNumber": 648,
+            "lineNumber": 0,
+            "name": "bar",
+            "sourceColumnNumber": 15,
+            "sourceLineNumber": 3,
+            "sourceURL": "src/foo.js",
+          },
+          "sizes": Object {
+            "files": Object {},
+            "totalBytes": 0,
+            "unmappedBytes": 0,
+          },
+        }
+      `);
+    });
+
+    it('4', async () => {
+      map.names = ['blah'];
+      expect(await test()).toMatchInlineSnapshot(`
+        Object {
+          "entry": SourceMapEntry {
+            "columnNumber": 644,
+            "lastColumnNumber": 648,
+            "lineNumber": 0,
+            "name": undefined,
+            "sourceColumnNumber": 15,
+            "sourceLineNumber": 3,
+            "sourceURL": "src/foo.js",
+          },
+          "sizes": Object {
+            "files": Object {
+              "node_modules/browser-pack/_prelude.js": 480,
+              "src/bar.js": 104,
+              "src/foo.js": 98,
+            },
+            "totalBytes": 718,
+            "unmappedBytes": 36,
+          },
+        }
+      `);
+    });
   });
 });
