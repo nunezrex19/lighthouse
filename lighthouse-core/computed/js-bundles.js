@@ -105,14 +105,8 @@ class JSBundles {
 
       const compiledUrl = SourceMap.scriptUrl || 'compiled.js';
       const mapUrl = SourceMap.sourceMapUrl || 'compiled.js.map';
-      // CDT expects undefined properties to be explicit.
-      const rawMapForCdt = {
-        file: undefined,
-        names: undefined,
-        sections: undefined,
-        sourceRoot: undefined,
-        ...rawMap,
-      };
+      // @ts-ignore CDT expects undefined properties to be explicit.
+      const rawMapForCdt = /** @type {any} */ (rawMap);
       const map = new SDK.TextSourceMap(compiledUrl, mapUrl, rawMapForCdt);
 
       const content = scriptElement && scriptElement.content ? scriptElement.content : '';
