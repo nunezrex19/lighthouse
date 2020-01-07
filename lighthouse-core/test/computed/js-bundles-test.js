@@ -8,7 +8,6 @@
 /* eslint-env jest */
 const fs = require('fs');
 const JSBundles = require('../../computed/js-bundles.js');
-const networkRecordsToDevtoolsLog = require('../network-records-to-devtools-log.js');
 
 function load(name) {
   const mapData = fs.readFileSync(`${__dirname}/../fixtures/source-maps/${name}.js.map`, 'utf-8');
@@ -17,14 +16,12 @@ function load(name) {
 }
 
 describe('JSBundles computed artifact', () => {
-  it('collates script element, network record, and source map', async () => {
-    const networkRecords = [{url: 'https://www.example.com/app.js'}];
+  it('collates script element and source map', async () => {
     const artifacts = {
       SourceMaps: [{
         scriptUrl: 'https://www.example.com/app.js', map: {sources: ['index.js'], mappings: 'AAAA'},
       }],
       ScriptElements: [{src: 'https://www.example.com/app.js', content: ''}],
-      devtoolsLogs: {defaultPass: networkRecordsToDevtoolsLog(networkRecords)},
     };
     const context = {computedCache: new Map()};
     const results = await JSBundles.request(artifacts, context);
@@ -32,18 +29,15 @@ describe('JSBundles computed artifact', () => {
     const result = results[0];
     expect(result.rawMap).toBe(artifacts.SourceMaps[0].map);
     expect(result.script).toBe(artifacts.ScriptElements[0]);
-    expect(result.networkRecord.url).toEqual(networkRecords[0].url);
   });
 
   it('works (simple map)', async () => {
     // This map is from source-map-explorer.
     // https://github.com/danvk/source-map-explorer/tree/4b95f6e7dfe0058d791dcec2107fee43a1ebf02e/tests
     const {map, content} = load('foo.min');
-    const networkRecords = [{url: 'https://example.com/foo.min.js'}];
     const artifacts = {
       SourceMaps: [{scriptUrl: 'https://example.com/foo.min.js', map}],
       ScriptElements: [{src: 'https://example.com/foo.min.js', content}],
-      devtoolsLogs: {defaultPass: networkRecordsToDevtoolsLog(networkRecords)},
     };
     const context = {computedCache: new Map()};
     const results = await JSBundles.request(artifacts, context);
@@ -88,11 +82,9 @@ describe('JSBundles computed artifact', () => {
     // https://github.com/danvk/source-map-explorer/tree/4b95f6e7dfe0058d791dcec2107fee43a1ebf02e/tests
     const {map, content} = load('foo.min');
     map.sources[1] = null;
-    const networkRecords = [{url: 'https://example.com/foo.min.js'}];
     const artifacts = {
       SourceMaps: [{scriptUrl: 'https://example.com/foo.min.js', map}],
       ScriptElements: [{src: 'https://example.com/foo.min.js', content}],
-      devtoolsLogs: {defaultPass: networkRecordsToDevtoolsLog(networkRecords)},
     };
     const context = {computedCache: new Map()};
     const results = await JSBundles.request(artifacts, context);
@@ -132,11 +124,9 @@ describe('JSBundles computed artifact', () => {
 
   it('works (complex map)', async () => {
     const {map, content} = load('squoosh');
-    const networkRecords = [{url: 'https://squoosh.app/main-app.js'}];
     const artifacts = {
       SourceMaps: [{scriptUrl: 'https://squoosh.app/main-app.js', map}],
       ScriptElements: [{src: 'https://squoosh.app/main-app.js', content}],
-      devtoolsLogs: {defaultPass: networkRecordsToDevtoolsLog(networkRecords)},
     };
     const context = {computedCache: new Map()};
     const results = await JSBundles.request(artifacts, context);
@@ -256,11 +246,9 @@ describe('JSBundles computed artifact', () => {
     });
 
     async function test() {
-      const networkRecords = [{url: 'https://example.com/foo.min.js'}];
       const artifacts = {
         SourceMaps: [{scriptUrl: 'https://example.com/foo.min.js', map}],
         ScriptElements: [{src: 'https://example.com/foo.min.js', content}],
-        devtoolsLogs: {defaultPass: networkRecordsToDevtoolsLog(networkRecords)},
       };
       const context = {computedCache: new Map()};
       const results = await JSBundles.request(artifacts, context);

@@ -293,7 +293,6 @@ declare global {
       export interface Bundle {
         rawMap: RawSourceMap;
         script: ScriptElement;
-        networkRecord?: NetworkRequest;
         map: TextSourceMap;
         sizes: {
           files: Record<string, number>;

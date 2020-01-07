@@ -6,8 +6,6 @@
 'use strict';
 
 const log = require('lighthouse-logger');
-const Audit = require('../audits/audit.js');
-const NetworkRecords = require('./network-records.js');
 const makeComputedArtifact = require('./computed-artifact.js');
 const SDK = require('../lib/cdt/SDK.js');
 
@@ -81,13 +79,10 @@ function computeGeneratedFileSizes(map, content) {
 
 class JSBundles {
   /**
-   * @param {Pick<LH.Artifacts, 'SourceMaps'|'ScriptElements'|'devtoolsLogs'>} artifacts
-   * @param {LH.Audit.Context} context
+   * @param {Pick<LH.Artifacts, 'SourceMaps'|'ScriptElements'>} artifacts
    */
-  static async compute_(artifacts, context) {
+  static async compute_(artifacts) {
     const {SourceMaps, ScriptElements} = artifacts;
-    const devtoolsLog = artifacts.devtoolsLogs[Audit.DEFAULT_PASS];
-    const networkRecords = await NetworkRecords.request(devtoolsLog, context);
 
     /** @type {LH.Artifacts.Bundle[]} */
     const bundles = [];
@@ -100,7 +95,6 @@ class JSBundles {
       if (!rawMap.mappings) continue;
 
       const scriptElement = ScriptElements.find(s => s.src === scriptUrl);
-      const networkRecord = networkRecords.find(r => r.url === scriptUrl);
       if (!scriptElement) continue;
 
       const compiledUrl = SourceMap.scriptUrl || 'compiled.js';
@@ -115,7 +109,6 @@ class JSBundles {
       const bundle = {
         rawMap,
         script: scriptElement,
-        networkRecord,
         map,
         sizes,
       };
