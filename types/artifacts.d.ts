@@ -384,6 +384,8 @@ declare global {
         resourceSize: number;
         /** The MIME type of the underlying image file. */
         mimeType?: string;
+        /** The loading attribute of the image. */
+        loading?: string;
       }
 
       export interface OptimizedImage {
