@@ -51,6 +51,12 @@ class ResourceSummary {
 
     for (const record of networkRecords) {
       const type = this.determineResourceType(record);
+      if (type === 'other' && new URL(record.url).pathname === '/favicon.ico') {
+        // Headless Chrome does not request /favicon.ico, so don't consider this request.
+        // Makes resource summary consistent across LR / other channels.
+        continue;
+      }
+
       resourceSummary[type].count++;
       resourceSummary[type].size += record.transferSize;
 
