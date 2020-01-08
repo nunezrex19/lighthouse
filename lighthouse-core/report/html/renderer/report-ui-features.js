@@ -63,7 +63,6 @@ class ReportUIFeatures {
     this.onCopy = this.onCopy.bind(this);
     this.onDropDownMenuClick = this.onDropDownMenuClick.bind(this);
     this.onKeyUp = this.onKeyUp.bind(this);
-    this.onChevronClick = this.onChevronClick.bind(this);
     this.collapseAllDetails = this.collapseAllDetails.bind(this);
     this.expandAllDetails = this.expandAllDetails.bind(this);
     this._toggleDarkTheme = this._toggleDarkTheme.bind(this);
@@ -77,14 +76,6 @@ class ReportUIFeatures {
    */
   initFeatures(report) {
     this.json = report;
-
-    // TODO(i18n): Modifying Util singleton is not the best way to i18n this.
-    // Related TODO: https://github.com/GoogleChrome/lighthouse/pull/5713/files#r204948699
-    // Update util UIStrings, just like in report-renderer, we need to do it again b/c they have been reset.
-    Util.cacheUIStrings();
-    if (report.i18n && report.i18n.rendererFormattedStrings) {
-      Util.updateAllUIStrings(report.i18n.rendererFormattedStrings);
-    }
 
     this._setupMediaQueryListeners();
     this._dropDown.setup(this.onDropDownMenuClick);
@@ -145,9 +136,6 @@ class ReportUIFeatures {
         this._dom.find('.lh-metrics-toggle__input', this._document));
       toggleInputEl.checked = true;
     }
-
-    // Reset Util UIStrings.
-    Util.hydrateUIStringsFromCache();
   }
 
   /**
@@ -225,7 +213,8 @@ class ReportUIFeatures {
     /** @type {Array<HTMLTableElement>} */
     const tables = Array.from(this._document.querySelectorAll('.lh-table'));
     const tablesWithUrls = tables
-      .filter(el => el.querySelector('td.lh-table-column--url'))
+      .filter(el =>
+        el.querySelector('td.lh-table-column--url, td.lh-table-column--source-location'))
       .filter(el => {
         const containingAudit = el.closest('.lh-audit');
         if (!containingAudit) throw new Error('.lh-table not within audit');
@@ -263,7 +252,7 @@ class ReportUIFeatures {
       this._dom.find('.lh-3p-filter-count', filterTemplate).textContent =
           `${thirdPartyRows.size}`;
       this._dom.find('.lh-3p-ui-string', filterTemplate).textContent =
-          Util.UIStrings.thirdPartyResourcesLabel;
+          Util.i18n.strings.thirdPartyResourcesLabel;
 
       // If all or none of the rows are 3rd party, disable the checkbox.
       if (thirdPartyRows.size === urlItems.length || !thirdPartyRows.size) {
@@ -369,16 +358,6 @@ class ReportUIFeatures {
     } catch (/** @type {Error} */ e) {
       this._copyAttempt = false;
       this._fireEventOn('lh-log', this._document, {cmd: 'log', msg: e.message});
-    }
-  }
-
-  onChevronClick() {
-    const toggle = this._dom.find('.lh-config__settings-toggle', this._document);
-
-    if (toggle.hasAttribute('open')) {
-      toggle.removeAttribute('open');
-    } else {
-      toggle.setAttribute('open', 'true');
     }
   }
 
@@ -662,21 +641,21 @@ class DropDown {
 
     // i18n dropdown menu
     this._dom.find('#lh-dropdown__print-summary', this._menuEl).textContent =
-      Util.UIStrings.dropdownPrintSummary;
+      Util.i18n.strings.dropdownPrintSummary;
     this._dom.find('#lh-dropdown__print-expanded', this._menuEl).textContent =
-      Util.UIStrings.dropdownPrintExpanded;
+      Util.i18n.strings.dropdownPrintExpanded;
     this._dom.find('#lh-dropdown__json', this._menuEl).textContent =
-      Util.UIStrings.dropdownCopyJSON;
+      Util.i18n.strings.dropdownCopyJSON;
     this._dom.find('#lh-dropdown__save-html', this._menuEl).textContent =
-      Util.UIStrings.dropdownSaveHTML;
+      Util.i18n.strings.dropdownSaveHTML;
     this._dom.find('#lh-dropdown__save-json', this._menuEl).textContent =
-      Util.UIStrings.dropdownSaveJSON;
+      Util.i18n.strings.dropdownSaveJSON;
     this._dom.find('#lh-dropdown__open-viewer', this._menuEl).textContent =
-      Util.UIStrings.dropdownViewer;
+      Util.i18n.strings.dropdownViewer;
     this._dom.find('#lh-dropdown__save-gist', this._menuEl).textContent =
-      Util.UIStrings.dropdownSaveGist;
+      Util.i18n.strings.dropdownSaveGist;
     this._dom.find('#lh-dropdown__dark-theme', this._menuEl).textContent =
-      Util.UIStrings.dropdownDarkTheme;
+      Util.i18n.strings.dropdownDarkTheme;
   }
 
   close() {

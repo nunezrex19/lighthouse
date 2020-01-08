@@ -25,7 +25,7 @@
 
 /** @typedef {import('./dom.js')} DOM */
 
-/* globals self, Util, DetailsRenderer, CategoryRenderer, PerformanceCategoryRenderer, PwaCategoryRenderer */
+/* globals self, Util, DetailsRenderer, CategoryRenderer, I18n, PerformanceCategoryRenderer, PwaCategoryRenderer */
 
 class ReportRenderer {
   /**
@@ -44,18 +44,12 @@ class ReportRenderer {
    * @return {Element}
    */
   renderReport(result, container) {
-    // Mutate the UIStrings if necessary (while saving originals)
-    Util.cacheUIStrings();
-
     this._dom.setLighthouseChannel(result.configSettings.channel || 'unknown');
 
     const report = Util.prepareReportResult(result);
 
     container.textContent = ''; // Remove previous report.
     container.appendChild(this._renderReport(report));
-
-    // put the UIStrings back into original state
-    Util.hydrateUIStringsFromCache();
 
     return container;
   }
@@ -101,18 +95,18 @@ class ReportRenderer {
 
     const env = this._dom.find('.lh-env__items', footer);
     env.id = 'runtime-settings';
-    this._dom.find('.lh-env__title', footer).textContent = Util.UIStrings.runtimeSettingsTitle;
+    this._dom.find('.lh-env__title', footer).textContent = Util.i18n.strings.runtimeSettingsTitle;
 
     const envValues = Util.getEnvironmentDisplayValues(report.configSettings || {});
     [
-      {name: Util.UIStrings.runtimeSettingsUrl, description: report.finalUrl},
-      {name: Util.UIStrings.runtimeSettingsFetchTime,
-        description: Util.formatDateTime(report.fetchTime)},
+      {name: Util.i18n.strings.runtimeSettingsUrl, description: report.finalUrl},
+      {name: Util.i18n.strings.runtimeSettingsFetchTime,
+        description: Util.i18n.formatDateTime(report.fetchTime)},
       ...envValues,
-      {name: Util.UIStrings.runtimeSettingsUA, description: report.userAgent},
-      {name: Util.UIStrings.runtimeSettingsUANet, description: report.environment &&
+      {name: Util.i18n.strings.runtimeSettingsUA, description: report.userAgent},
+      {name: Util.i18n.strings.runtimeSettingsUANet, description: report.environment &&
         report.environment.networkUserAgent},
-      {name: Util.UIStrings.runtimeSettingsBenchmark, description: report.environment &&
+      {name: Util.i18n.strings.runtimeSettingsBenchmark, description: report.environment &&
         report.environment.benchmarkIndex.toFixed(0)},
     ].forEach(runtime => {
       if (!runtime.description) return;
@@ -123,7 +117,7 @@ class ReportRenderer {
       env.appendChild(item);
     });
 
-    this._dom.find('.lh-footer__version_issue', footer).textContent = Util.UIStrings.footerIssue;
+    this._dom.find('.lh-footer__version_issue', footer).textContent = Util.i18n.strings.footerIssue;
     this._dom.find('.lh-footer__version', footer).textContent = report.lighthouseVersion;
     return footer;
   }
@@ -140,7 +134,7 @@ class ReportRenderer {
 
     const container = this._dom.cloneTemplate('#tmpl-lh-warnings--toplevel', this._templateContext);
     const message = this._dom.find('.lh-warnings__msg', container);
-    message.textContent = Util.UIStrings.toplevelWarningsMessage;
+    message.textContent = Util.i18n.strings.toplevelWarningsMessage;
 
     const warnings = this._dom.find('ul', container);
     for (const warningString of report.runWarnings) {
@@ -189,6 +183,13 @@ class ReportRenderer {
    * @return {DocumentFragment}
    */
   _renderReport(report) {
+    const i18n = new I18n(report.configSettings.locale, {
+      // Set missing renderer strings to default (english) values.
+      ...Util.UIStrings,
+      ...report.i18n.rendererFormattedStrings,
+    });
+    Util.i18n = i18n;
+
     const detailsRenderer = new DetailsRenderer(this._dom);
     const categoryRenderer = new CategoryRenderer(this._dom, detailsRenderer);
     categoryRenderer.setTemplateContext(this._templateContext);
@@ -252,9 +253,6 @@ class ReportRenderer {
     return reportFragment;
   }
 }
-
-/** @type {LH.I18NRendererStrings} */
-ReportRenderer._UIStringsStash = {};
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ReportRenderer;
