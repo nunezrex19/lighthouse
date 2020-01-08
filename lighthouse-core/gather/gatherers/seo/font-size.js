@@ -50,7 +50,7 @@ function nodeInBody(node) {
  * Get list of all nodes from the document body.
  *
  * @param {Driver} driver
- * @returns {Promise<Array<LH.Artifacts.FontSize.DomNodeWithParent>>}
+ * @returns {Promise<LH.Artifacts.FontSize.DomNodeWithParent[]>}
  */
 async function getAllNodesFromBody(driver) {
   const nodes = /** @type {DomNodeMaybeWithParent[]} */ (await driver.getNodesInDocument());
@@ -252,6 +252,8 @@ class FontSize extends Gatherer {
   }
 
   /**
+   * Maps backendNodeId of TextNodes to {fontSize, textLength}.
+   *
    * @param {LH.Crdp.DOMSnapshot.CaptureSnapshotResponse} snapshot
    * @return {BackendIdsToFontData}
    */
@@ -263,12 +265,12 @@ class FontSize extends Gatherer {
 
     for (let j = 0; j < snapshot.documents.length; j++) {
       const doc = snapshot.documents[j];
-      // doc is a flattened property list describing all the Nodes in a document, with all string values
-      // deduped in a strings array.
+      // `doc` is a flattened property list describing all the Nodes in a document, with all string
+      // values deduped in a strings array.
       // Implementation:
       // https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/inspector/inspector_dom_snapshot_agent.cc?sq=package:chromium&g=0&l=534
 
-      // satisfy the type checker that all expected values exist
+      // Satisfy ts that all expected values exist.
       if (!doc || !doc.nodes.nodeType || !doc.nodes.nodeName || !doc.nodes.backendNodeId
         || !doc.nodes.nodeValue || !doc.nodes.parentIndex) {
         throw new Error('Unexpected response from DOMSnapshot.captureSnapshot.');
@@ -296,25 +298,25 @@ class FontSize extends Gatherer {
         const textLength = getNodeTextLength(nodeValue);
         if (!textLength) continue; // ignore empty TextNodes
 
-        // walk up the hierarchy until a Node with a style is found
+        // Walk up the hierarchy until a Node with a style is found.
         let ancestorIndex = parentIndex;
         while (!nodeIndexToStyleIndex.has(ancestorIndex)) {
           ancestorIndex = doc.nodes.parentIndex[ancestorIndex];
           if (ancestorIndex === -1) {
-            // this shouldn't happen - at the very least, the root Node should have a style
+            // This shouldn't happen - at the very least, the root Node should have a style.
             throw new Error('Could not find style for a TextNode.');
           }
         }
         /** @type {number} */
-        // @ts-ignore: if styleIndex would be undefined, the above error would have thrown
+        // @ts-ignore: If styleIndex was undefined, the above error would have thrown.
         const styleIndex = nodeIndexToStyleIndex.get(ancestorIndex);
         const styles = doc.layout.styles[styleIndex];
 
-        // each styles is an array of string indices, one for each property given
+        // Each styles is an array of string indices, one for each property given
         // to DOMSnapshot.captureSnapshot. We only requested font-size, so there's just
         // the one string index here.
         const [fontSizeStringId] = styles;
-        // expects values like '11.5px' here
+        // Expects values like '11.5px' here.
         const fontSize = parseFloat(strings[fontSizeStringId]);
         backendIdsToFontData.set(doc.nodes.backendNodeId[i], {
           fontSize,
@@ -340,7 +342,8 @@ class FontSize extends Gatherer {
     let failingTextLength = 0;
     for (const crdpNode of crdpNodes) {
       const partialFontData = backendIdsToFontData.get(crdpNode.backendNodeId);
-      if (!partialFontData) continue; // wasn't a non-empty TextNode
+      if (!partialFontData) continue; // Isn't a non-empty TextNode.
+
       const {fontSize, textLength} = partialFontData;
       totalTextLength += textLength;
       if (fontSize < MINIMAL_LEGIBLE_FONT_SIZE_PX) {
@@ -365,8 +368,8 @@ class FontSize extends Gatherer {
     /** @type {Map<string, LH.Crdp.CSS.CSSStyleSheetHeader>} */
     const stylesheets = new Map();
     /** @param {LH.Crdp.CSS.StyleSheetAddedEvent} sheet */
-    const onStylesheetAdd = sheet => stylesheets.set(sheet.header.styleSheetId, sheet.header);
-    passContext.driver.on('CSS.styleSheetAdded', onStylesheetAdd);
+    const onStylesheetAdded = sheet => stylesheets.set(sheet.header.styleSheetId, sheet.header);
+    passContext.driver.on('CSS.styleSheetAdded', onStylesheetAdded);
 
     await Promise.all([
       passContext.driver.sendCommand('DOMSnapshot.enable'),
@@ -374,15 +377,16 @@ class FontSize extends Gatherer {
       passContext.driver.sendCommand('CSS.enable'),
     ]);
 
-    // Use DOMSnapshot.captureSnapshot to get the computed font-size style of every node.
+    // Get the computed font-size style of every node.
     const snapshotPromise = passContext.driver.sendCommand('DOMSnapshot.captureSnapshot', {
       computedStyles: ['font-size'],
     });
     const allNodesPromise = getAllNodesFromBody(passContext.driver);
     const [snapshot, crdpNodes] = await Promise.all([snapshotPromise, allNodesPromise]);
     const backendIdsToFontData = this.calculateBackendIdsToFontData(snapshot);
-    // backendIdsToFontData will include all non-empty TextNodes,
-    // but crdpNodes will only contain the Body node and its descendants.
+    // `backendIdsToFontData` will include all non-empty TextNodes.
+    // `crdpNodes` will only contain the body node and its descendants.
+
     const {
       totalTextLength,
       failingTextLength,
@@ -393,7 +397,7 @@ class FontSize extends Gatherer {
       analyzedFailingTextLength,
     } = await FontSize.fetchFailingNodeSourceRules(passContext.driver, failingNodes);
 
-    passContext.driver.off('CSS.styleSheetAdded', onStylesheetAdd);
+    passContext.driver.off('CSS.styleSheetAdded', onStylesheetAdded);
 
     // For the nodes whose computed style we could attribute to a stylesheet, assign
     // the stylsheet to the data.
