@@ -105,7 +105,7 @@ describe('Font size gatherer', () => {
     fontSizeGather = new FontSizeGather();
   });
 
-  it.only('returns information about font sizes used on page', async () => {
+  it('returns information about font sizes used on page', async () => {
     const driver = {
       on() {},
       off() {},
