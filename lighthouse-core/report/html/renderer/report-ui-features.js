@@ -639,23 +639,13 @@ class DropDown {
     this._menuEl.addEventListener('keydown', this.onMenuKeydown);
     this._menuEl.addEventListener('click', menuClickHandler);
 
-    // i18n dropdown menu
-    this._dom.find('#lh-dropdown__print-summary', this._menuEl).textContent =
-      Util.i18n.strings.dropdownPrintSummary;
-    this._dom.find('#lh-dropdown__print-expanded', this._menuEl).textContent =
-      Util.i18n.strings.dropdownPrintExpanded;
-    this._dom.find('#lh-dropdown__json', this._menuEl).textContent =
-      Util.i18n.strings.dropdownCopyJSON;
-    this._dom.find('#lh-dropdown__save-html', this._menuEl).textContent =
-      Util.i18n.strings.dropdownSaveHTML;
-    this._dom.find('#lh-dropdown__save-json', this._menuEl).textContent =
-      Util.i18n.strings.dropdownSaveJSON;
-    this._dom.find('#lh-dropdown__open-viewer', this._menuEl).textContent =
-      Util.i18n.strings.dropdownViewer;
-    this._dom.find('#lh-dropdown__save-gist', this._menuEl).textContent =
-      Util.i18n.strings.dropdownSaveGist;
-    this._dom.find('#lh-dropdown__dark-theme', this._menuEl).textContent =
-      Util.i18n.strings.dropdownDarkTheme;
+    // Fill in all i18n data.
+    this._dom.findAll('[data-i18n]', this._menuEl).forEach(row => {
+      const i18nAttr = row.getAttribute('data-i18n');
+      // @ts-ignore The 'data-i18n' fields always exist in this block,
+      // and are always a LH.I18NRendererStrings string.
+      row.textContent = Util.i18n.strings[i18nAttr];
+    });
   }
 
   close() {
