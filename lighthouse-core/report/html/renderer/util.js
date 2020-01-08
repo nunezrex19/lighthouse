@@ -427,7 +427,7 @@ class Util {
     }
 
     let deviceEmulation = 'No emulation';
-    if (settings.emulatedFormFactor === 'mobile') deviceEmulation = 'Emulated Nexus 5X';
+    if (settings.emulatedFormFactor === 'mobile') deviceEmulation = 'Emulated Moto G4';
     if (settings.emulatedFormFactor === 'desktop') deviceEmulation = 'Emulated Desktop';
 
     return {
