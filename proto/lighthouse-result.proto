@@ -395,7 +395,7 @@ message I18n {
     string runtime_settings_UA = 30;
     
     // Label for a row in a table that shows the User Agent that was used to send out all network requests during the Lighthouse run.
-    string runtime_settings_UA_net = 31;
+    string runtime_settings_UA_network = 31;
     
     // Label for a row in a table that shows the URL that was audited during a Lighthouse run.
     string runtime_settings_Url = 32;

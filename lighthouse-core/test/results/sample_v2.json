@@ -5355,7 +5355,7 @@
       "runtimeSettingsNetworkThrottling": "Network throttling",
       "runtimeSettingsTitle": "Runtime Settings",
       "runtimeSettingsUA": "User agent (host)",
-      "runtimeSettingsUANet": "User agent (network)",
+      "runtimeSettingsUANetwork": "User agent (network)",
       "runtimeSettingsUrl": "URL",
       "runtimeUnknown": "Unknown",
       "snippetCollapseButtonLabel": "Collapse snippet",
