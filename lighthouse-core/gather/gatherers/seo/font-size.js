@@ -17,9 +17,9 @@
  */
 
 const Gatherer = require('../gatherer.js');
-const Sentry = require('../../../lib/sentry.js');
+// const Sentry = require('../../../lib/sentry.js');
 const FONT_SIZE_PROPERTY_NAME = 'font-size';
-const TEXT_NODE_BLOCK_LIST = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT']);
+// const TEXT_NODE_BLOCK_LIST = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT']);
 const MINIMAL_LEGIBLE_FONT_SIZE_PX = 12;
 // limit number of protocol calls to make sure that gatherer doesn't take more than 1-2s
 const MAX_NODES_SOURCE_RULE_FETCHED = 50; // number of nodes to fetch the source font-size rule
@@ -43,6 +43,13 @@ function nodeInBody(node) {
   if (node.nodeName === 'BODY') {
     return true;
   }
+  // if (node.parentNode && node.parentNode.attributes && node.parentNode.attributes.indexOf('class') !== -1) {
+  //   if (node.parentNode.attributes[node.parentNode.attributes.indexOf('class') + 1].includes('vendor-option-purpose')) {
+  //     // debugger;
+  //     node.special = true;
+  //     global.backendNodeId.push(node.backendNodeId);
+  //   }
+  // }
   return nodeInBody(node.parentNode);
 }
 
@@ -181,12 +188,12 @@ function getEffectiveFontRule({attributesStyle, inlineStyle, matchedCSSRules, in
 }
 
 /**
- * @param {string} nodeValue
+ * @param {string} text
  * @returns {number}
  */
-function getNodeTextLength(nodeValue) {
+function getNodeTextLength(text) {
   // Array.from to count symbols not unicode code points. See: #6973
-  return !nodeValue ? 0 : Array.from(nodeValue.trim()).length;
+  return !text ? 0 : Array.from(text.trim()).length;
 }
 
 /**
@@ -212,13 +219,13 @@ async function fetchSourceRule(driver, node) {
   };
 }
 
-/**
- * @param {{nodeType: number, parentNodeName: string}} node
- * @returns {boolean}
- */
-function isTextNode(node) {
-  return node.nodeType === TEXT_NODE_TYPE && !TEXT_NODE_BLOCK_LIST.has(node.parentNodeName);
-}
+// /**
+//  * @param {{nodeType: number, parentNodeName: string}} node
+//  * @returns {boolean}
+//  */
+// function isTextNode(node) {
+//   return node.nodeType === TEXT_NODE_TYPE && !TEXT_NODE_BLOCK_LIST.has(node.parentNodeName);
+// }
 
 class FontSize extends Gatherer {
   /**
@@ -258,10 +265,14 @@ class FontSize extends Gatherer {
    * @return {BackendIdsToFontData}
    */
   calculateBackendIdsToFontData(snapshot) {
+    // console.log(JSON.stringify(snapshot.strings.filter(s => s.includes('Consent Purposes')), null, 2));
+    require('fs').writeFileSync('/usr/local/google/home/cjamcl/snapshot-pr.json', JSON.stringify(snapshot, null, 2));
     const strings = snapshot.strings;
 
     /** @type {BackendIdsToFontData} */
     const backendIdsToFontData = new Map();
+
+    // const data = [];
 
     for (let j = 0; j < snapshot.documents.length; j++) {
       const doc = snapshot.documents[j];
@@ -276,54 +287,107 @@ class FontSize extends Gatherer {
         throw new Error('Unexpected response from DOMSnapshot.captureSnapshot.');
       }
 
-      // Not all nodes have computed styles (ex: TextNodes), so doc.layout.* is smaller than doc.nodes.*
-      // doc.layout.nodeIndex maps the index into doc.layout.styles to an index into doc.nodes.*
-      // nodeIndexToStyleIndex inverses that mapping.
-      /** @type {Map<number, number>} */
-      const nodeIndexToStyleIndex = new Map();
-      doc.layout.nodeIndex.forEach((nodeIndex, styleIndex) => {
-        nodeIndexToStyleIndex.set(nodeIndex, styleIndex);
-      });
+      for (const layoutIndex of doc.textBoxes.layoutIndex) {
+        const text = strings[doc.layout.text[layoutIndex]];
+        if (!text) continue;
 
-      for (let i = 0; i < doc.nodes.nodeType.length; i++) {
-        const nodeType = doc.nodes.nodeType[i];
-        const nodeValue = strings[doc.nodes.nodeValue[i]];
-        const parentIndex = doc.nodes.parentIndex[i];
-        const parentNodeName = strings[doc.nodes.nodeName[parentIndex]];
-        if (!isTextNode({
-          nodeType,
-          parentNodeName,
-        })) continue;
-
-        const textLength = getNodeTextLength(nodeValue);
-        if (!textLength) continue; // ignore empty TextNodes
-
-        // Walk up the hierarchy until a Node with a style is found.
-        let ancestorIndex = parentIndex;
-        while (!nodeIndexToStyleIndex.has(ancestorIndex)) {
-          ancestorIndex = doc.nodes.parentIndex[ancestorIndex];
-          if (ancestorIndex === -1) {
-            // This shouldn't happen - at the very least, the root Node should have a style.
-            throw new Error('Could not find style for a TextNode.');
-          }
-        }
-        /** @type {number} */
-        // @ts-ignore: If styleIndex was undefined, the above error would have thrown.
-        const styleIndex = nodeIndexToStyleIndex.get(ancestorIndex);
-        const styles = doc.layout.styles[styleIndex];
-
-        // Each styles is an array of string indices, one for each property given
-        // to DOMSnapshot.captureSnapshot. We only requested font-size, so there's just
-        // the one string index here.
+        const nodeIndex = doc.layout.nodeIndex[layoutIndex];
+        const styles = doc.layout.styles[layoutIndex];
         const [fontSizeStringId] = styles;
-        // Expects values like '11.5px' here.
+
         const fontSize = parseFloat(strings[fontSizeStringId]);
-        backendIdsToFontData.set(doc.nodes.backendNodeId[i], {
+        backendIdsToFontData.set(doc.nodes.backendNodeId[nodeIndex], {
           fontSize,
-          textLength,
+          textLength: getNodeTextLength(text),
         });
+
+        // const parentIndex = doc.nodes.parentIndex[nodeIndex];
+        // const parentNodeName = strings[doc.nodes.nodeName[parentIndex]];
+        // if (text.length) {
+
+        //   console.log({nodeIndex, fontSize, textIndex: doc.layout.text[layoutIndex], text});
+        // }
+
+        // if (text && text.includes('Consent Purposes')) {
+        //   debugger;
+        // }
       }
+
+      // TODO delete below.
+      continue;
+
+
+      // // Not all nodes have computed styles (ex: TextNodes), so doc.layout.* is smaller than doc.nodes.*
+      // // doc.layout.nodeIndex maps the index into doc.layout.styles to an index into doc.nodes.*
+      // // nodeIndexToStyleIndex inverses that mapping.
+      // /** @type {Map<number, number>} */
+      // const nodeIndexToStyleIndex = new Map();
+      // doc.layout.nodeIndex.forEach((nodeIndex, styleIndex) => {
+      //   nodeIndexToStyleIndex.set(nodeIndex, styleIndex);
+      // });
+
+      // for (let i = 0; i < doc.nodes.nodeType.length; i++) {
+      //   const nodeType = doc.nodes.nodeType[i];
+      //   const nodeValue = strings[doc.nodes.nodeValue[i]];
+      //   const parentIndex = doc.nodes.parentIndex[i];
+      //   const parentNodeName = strings[doc.nodes.nodeName[parentIndex]];
+      //   // if (global.backendNodeId === doc.nodes.backendNodeId[parentIndex]) debugger;
+      //   // if (global.backendNodeId.includes(doc.nodes.backendNodeId[i])) debugger;
+      //   // if (global.backendNodeId.includes(doc.nodes.backendNodeId[parentIndex])) debugger;
+      //   // if (strings[doc.nodes.nodeValue[parentIndex]] && strings[doc.nodes.nodeValue[parentIndex]].includes('Consent Purposes')) debugger;
+      //   if (!isTextNode({
+      //     nodeType,
+      //     parentNodeName,
+      //   })) continue;
+
+      //   const textLength = getNodeTextLength(nodeValue);
+      //   if (!textLength) continue; // ignore empty TextNodes
+      //   data.push(nodeValue.trim());
+
+      //   // if (nodeValue && nodeValue.includes('Consent Purposes')) {
+      //   //   console.log(123);
+      //   //   console.log(nodeValue);
+
+      //   //   const layoutIndex = doc.layout.nodeIndex.indexOf(i);
+      //   //   const textBoxIndex = doc.textBoxes.layoutIndex.indexOf(layoutIndex);
+
+      //   //   console.log({layoutIndex, textBoxIndex});
+      //   //   debugger;
+      //   //   // console.log(doc.layout.styles[layoutIndex]);
+      //   //   // console.log(doc.layout.styles[layoutIndex]);
+
+      //   //   process.exit();
+      //   // }
+
+      //   // Walk up the hierarchy until a Node with a style is found.
+      //   let ancestorIndex = parentIndex;
+      //   while (!nodeIndexToStyleIndex.has(ancestorIndex)) {
+      //     ancestorIndex = doc.nodes.parentIndex[ancestorIndex];
+      //     if (ancestorIndex === -1) {
+      //       // This shouldn't happen - at the very least, the root Node should have a style.
+      //       throw new Error('Could not find style for a TextNode.');
+      //     }
+      //   }
+      //   /** @type {number} */
+      //   // @ts-ignore: If styleIndex was undefined, the above error would have thrown.
+      //   const styleIndex = nodeIndexToStyleIndex.get(ancestorIndex);
+      //   const styles = doc.layout.styles[styleIndex];
+
+      //   // Each styles is an array of string indices, one for each property given
+      //   // to DOMSnapshot.captureSnapshot. We only requested font-size, so there's just
+      //   // the one string index here.
+      //   const [fontSizeStringId] = styles;
+      //   // Expects values like '11.5px' here.
+      //   const fontSize = parseFloat(strings[fontSizeStringId]);
+      //   backendIdsToFontData.set(doc.nodes.backendNodeId[i], {
+      //     fontSize,
+      //     textLength,
+      //   });
+      // }
     }
+
+    // data.sort((a, b) => b.length - a.length);
+    // console.log(JSON.stringify(data, null, 2));
 
     return backendIdsToFontData;
   }
@@ -341,6 +405,7 @@ class FontSize extends Gatherer {
     let totalTextLength = 0;
     let failingTextLength = 0;
     for (const crdpNode of crdpNodes) {
+      // if (crdpNode.parentNode && crdpNode.parentNode.special) debugger;
       const partialFontData = backendIdsToFontData.get(crdpNode.backendNodeId);
       if (!partialFontData) continue; // Isn't a non-empty TextNode.
 
@@ -381,6 +446,7 @@ class FontSize extends Gatherer {
     const snapshotPromise = passContext.driver.sendCommand('DOMSnapshot.captureSnapshot', {
       computedStyles: ['font-size'],
     });
+    // global.backendNodeId = global.backendNodeId || [];
     const allNodesPromise = getAllNodesFromBody(passContext.driver);
     const [snapshot, crdpNodes] = await Promise.all([snapshotPromise, allNodesPromise]);
     const backendIdsToFontData = this.calculateBackendIdsToFontData(snapshot);
