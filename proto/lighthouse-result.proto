@@ -1,10 +1,12 @@
 syntax = "proto3";
 
+// This comment required for Lightrider import compatibility # header
+
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 
-// This comment required for LightRider import compatibility
+// This comment required for LightRider import compatibility # suffix
 
 // Canonical list of errors created by Lighthouse.
 enum LighthouseError {
@@ -47,10 +49,16 @@ enum LighthouseError {
   INSECURE_DOCUMENT_REQUEST = 16;
   // Used when protocol command times out.
   PROTOCOL_TIMEOUT = 17;
+  // Used when the page is not responding after maxWaitForLoad.
+  PAGE_HUNG = 18;
+  // DNS failure on main document (no resolution, timed out, etc)
+  DNS_FAILURE = 19;
+  // A timeout in the initial connection to the debugger protocol.
+  CRI_TIMEOUT = 20;
 }
 
 // The overarching Lighthouse Response object (LHR)
-// https://github.com/GoogleChrome/lighthouse/blob/master/typings/lhr.d.ts
+// https://github.com/GoogleChrome/lighthouse/blob/master/types/lhr.d.ts
 message LighthouseResult {
   // The timestamp of when the results were generated.
   google.protobuf.Timestamp fetch_time = 1;
@@ -135,6 +143,10 @@ message LighthouseResult {
     // List of the categories that were run, empty if all were run
     // nullable list of strings
     google.protobuf.Value only_categories = 3;
+
+    // How Lighthouse was run, e.g. from the Chrome extension or from the npm
+    // module
+    string channel = 4;
   }
 
   // The settings that were used to run this audit
@@ -145,24 +157,31 @@ message LighthouseResult {
 
   // Message containing the performance timing data for the Lighthouse run
   message Timing {
-
-    // Corresponds to: https://www.w3.org/TR/performance-timeline-2/#dom-performanceentry
+    // Corresponds to:
+    // https://www.w3.org/TR/performance-timeline-2/#dom-performanceentry
     message PerformanceEntry {
       string name = 1;
       string entry_type = 2;
       google.protobuf.DoubleValue start_time = 3;
       google.protobuf.DoubleValue duration = 4;
+
+      // Whether timing entry was collected during artifact gathering.
+      bool gather = 5;
     }
 
     // The total duration of Lighthouse's run
     google.protobuf.DoubleValue total = 1;
 
-    // Corresponds to: https://www.w3.org/TR/performance-timeline-2/#idl-def-performanceentrylist
+    // Corresponds to:
+    // https://www.w3.org/TR/performance-timeline-2/#idl-def-performanceentrylist
     repeated PerformanceEntry entries = 2;
   }
 
   // The performance timing data for the Lighthouse run
   Timing timing = 14;
+
+  // The Stack Pack data used by audits in this run.
+  repeated StackPack stack_packs = 15;
 }
 
 // Message containing a category
@@ -243,6 +262,7 @@ message AuditResult {
     // The audit turned out to not apply to the page. Score is NaN and should be
     // ignored.
     not_applicable = 4;
+    notApplicable = 7;
     // The audit exists only to tell you to review something yourself. Score is
     // NaN and should be ignored
     manual = 5;
@@ -270,6 +290,11 @@ message AuditResult {
   // List of warnings associated with this audit
   // type of `Value` since this can be null
   google.protobuf.Value warnings = 10;
+
+  // A numeric value that has a meaning specific to the audit, e.g. the number
+  // of nodes in the DOM or the timestamp of a specific load event. More
+  // information can be found in the audit details, if present.
+  google.protobuf.DoubleValue numeric_value = 11;
 }
 
 // Message containing the i18n data for the LHR - Version 1
@@ -326,8 +351,35 @@ message I18n {
 
     // The title of the lab data performance category
     string lab_data_title = 16;
+
+    // The heading that is shown above a list of audits that have warnings
+    string warning_audits_group_title = 17;
+
+    // The label for the button to show all lines of a snippet
+    string snippet_expand_button_label = 18;
+
+    // The label for the button to show only a few lines of a snippet
+    string snippet_collapse_button_label = 19;
+
+    // This label is for a filter checkbox above a table of items
+    string third_party_resources_label = 20;
   }
 
   // The message holding all formatted strings
   RendererFormattedStrings renderer_formatted_strings = 1;
+}
+
+// Message containing Stack Pack information.
+message StackPack {
+  // The human readable id of the Stack Pack.
+  string id = 1;
+
+  // The user facing title of the Stack Pack.
+  string title = 2;
+
+  // The icon as a data url.
+  string icon_data_URL = 3;
+
+  // Map of audit-ids to Stack Pack descriptions.
+  map<string, string> descriptions = 4;
 }

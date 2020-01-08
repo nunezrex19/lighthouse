@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const NetworkRequest = require('./network-request');
+const NetworkRequest = require('./network-request.js');
 const EventEmitter = require('events').EventEmitter;
 const log = require('lighthouse-logger');
 
@@ -30,7 +30,7 @@ class NetworkRecorder extends EventEmitter {
    * @return {Array<LH.Artifacts.NetworkRequest>}
    */
   getInflightRecords() {
-    return this._records.filter(record => !NetworkRecorder.isNetworkRecordFinished(record));
+    return this._records.filter(record => !record.finished);
   }
 
   getRecords() {
@@ -54,24 +54,35 @@ class NetworkRecorder extends EventEmitter {
   }
 
   isIdle() {
-    return !!this._getActiveIdlePeriod(0);
+    return this._isActiveIdlePeriod(0);
   }
 
   is2Idle() {
-    return !!this._getActiveIdlePeriod(2);
+    return this._isActiveIdlePeriod(2);
   }
 
   /**
+   * Returns whether the number of currently inflight requests is less than or
+   * equal to the number of allowed concurrent requests.
    * @param {number} allowedRequests
+   * @return {boolean}
    */
-  _getActiveIdlePeriod(allowedRequests) {
-    const quietPeriods = NetworkRecorder.findNetworkQuietPeriods(this._records, allowedRequests);
-    return quietPeriods.find(period => !Number.isFinite(period.end));
+  _isActiveIdlePeriod(allowedRequests) {
+    let inflightRequests = 0;
+
+    for (let i = 0; i < this._records.length; i++) {
+      const record = this._records[i];
+      if (record.finished) continue;
+      if (IGNORED_NETWORK_SCHEMES.includes(record.parsedURL.scheme)) continue;
+      inflightRequests++;
+    }
+
+    return inflightRequests <= allowedRequests;
   }
 
   _emitNetworkStatus() {
-    const zeroQuiet = this._getActiveIdlePeriod(0);
-    const twoQuiet = this._getActiveIdlePeriod(2);
+    const zeroQuiet = this.isIdle();
+    const twoQuiet = this.is2Idle();
 
     if (twoQuiet && zeroQuiet) {
       log.verbose('NetworkRecorder', 'network fully-quiet');
@@ -86,41 +97,6 @@ class NetworkRecorder extends EventEmitter {
       this.emit('network-2-busy');
       this.emit('networkbusy');
     }
-  }
-
-  /**
-   * QUIC network requests don't always "finish" even when they're done loading data, use recievedHeaders
-   * @see https://github.com/GoogleChrome/lighthouse/issues/5254
-   * @param {LH.Artifacts.NetworkRequest} record
-   * @return {boolean}
-   */
-  static _isQUICAndFinished(record) {
-    const isQUIC = record.responseHeaders && record.responseHeaders
-        .some(header => header.name.toLowerCase() === 'alt-svc' && /quic/.test(header.value));
-    const receivedHeaders = record.timing && record.timing.receiveHeadersEnd > 0;
-    return !!(isQUIC && receivedHeaders && record.endTime);
-  }
-
-  /**
-   * frame root network requests don't always "finish" even when they're done loading data, use responseReceived instead
-   * @see https://github.com/GoogleChrome/lighthouse/issues/6067#issuecomment-423211201
-   * @param {LH.Artifacts.NetworkRequest} record
-   * @return {boolean}
-   */
-  static _isFrameRootRequestAndFinished(record) {
-    const isFrameRootRequest = record.url === record.documentURL;
-    const responseReceived = record.responseReceivedTime > 0;
-    return !!(isFrameRootRequest && responseReceived && record.endTime);
-  }
-
-  /**
-   * @param {LH.Artifacts.NetworkRequest} record
-   * @return {boolean}
-   */
-  static isNetworkRecordFinished(record) {
-    return record.finished ||
-      NetworkRecorder._isQUICAndFinished(record) ||
-      NetworkRecorder._isFrameRootRequestAndFinished(record);
   }
 
   /**
@@ -143,7 +119,7 @@ class NetworkRecorder extends EventEmitter {
 
       // convert the network record timestamp to ms
       timeBoundaries.push({time: record.startTime * 1000, isStart: true});
-      if (NetworkRecorder.isNetworkRecordFinished(record)) {
+      if (record.finished) {
         timeBoundaries.push({time: record.endTime * 1000, isStart: false});
       }
     });
@@ -209,19 +185,21 @@ class NetworkRecorder extends EventEmitter {
   // DevTools SDK network layer.
 
   /**
-   * @param {LH.Crdp.Network.RequestWillBeSentEvent} data
+   * @param {{params: LH.Crdp.Network.RequestWillBeSentEvent, sessionId?: string}} event
    */
-  onRequestWillBeSent(data) {
-    const originalRequest = this._findRealRequest(data.requestId);
+  onRequestWillBeSent(event) {
+    const data = event.params;
+    const originalRequest = this._findRealRequestAndSetSession(data.requestId, event.sessionId);
     // This is a simple new request, create the NetworkRequest object and finish.
     if (!originalRequest) {
       const request = new NetworkRequest();
       request.onRequestWillBeSent(data);
+      request.sessionId = event.sessionId;
       this.onRequestStarted(request);
       return;
     }
 
-    // TODO(phulce): log these to sentry?
+    // TODO: beacon to Sentry, https://github.com/GoogleChrome/lighthouse/issues/7041
     if (!data.redirectResponse) {
       return;
     }
@@ -231,7 +209,6 @@ class NetworkRecorder extends EventEmitter {
     const modifiedData = {
       ...data,
       // Copy over the initiator as well to match DevTools behavior
-      // TODO(phulce): abandon this DT hack and update Lantern graph to handle it
       initiator: originalRequest.initiator,
       requestId: `${originalRequest.requestId}:redirect`,
     };
@@ -249,57 +226,63 @@ class NetworkRecorder extends EventEmitter {
   }
 
   /**
-   * @param {LH.Crdp.Network.RequestServedFromCacheEvent} data
+   * @param {{params: LH.Crdp.Network.RequestServedFromCacheEvent, sessionId?: string}} event
    */
-  onRequestServedFromCache(data) {
-    const request = this._findRealRequest(data.requestId);
+  onRequestServedFromCache(event) {
+    const data = event.params;
+    const request = this._findRealRequestAndSetSession(data.requestId, event.sessionId);
     if (!request) return;
     request.onRequestServedFromCache();
   }
 
   /**
-   * @param {LH.Crdp.Network.ResponseReceivedEvent} data
+   * @param {{params: LH.Crdp.Network.ResponseReceivedEvent, sessionId?: string}} event
    */
-  onResponseReceived(data) {
-    const request = this._findRealRequest(data.requestId);
+  onResponseReceived(event) {
+    const data = event.params;
+    const request = this._findRealRequestAndSetSession(data.requestId, event.sessionId);
     if (!request) return;
     request.onResponseReceived(data);
   }
 
   /**
-   * @param {LH.Crdp.Network.DataReceivedEvent} data
+   * @param {{params: LH.Crdp.Network.DataReceivedEvent, sessionId?: string}} event
    */
-  onDataReceived(data) {
-    const request = this._findRealRequest(data.requestId);
+  onDataReceived(event) {
+    const data = event.params;
+    const request = this._findRealRequestAndSetSession(data.requestId, event.sessionId);
     if (!request) return;
     request.onDataReceived(data);
   }
 
   /**
-   * @param {LH.Crdp.Network.LoadingFinishedEvent} data
+   * @param {{params: LH.Crdp.Network.LoadingFinishedEvent, sessionId?: string}} event
    */
-  onLoadingFinished(data) {
-    const request = this._findRealRequest(data.requestId);
+  onLoadingFinished(event) {
+    const data = event.params;
+    const request = this._findRealRequestAndSetSession(data.requestId, event.sessionId);
     if (!request) return;
     request.onLoadingFinished(data);
     this.onRequestFinished(request);
   }
 
   /**
-   * @param {LH.Crdp.Network.LoadingFailedEvent} data
+   * @param {{params: LH.Crdp.Network.LoadingFailedEvent, sessionId?: string}} event
    */
-  onLoadingFailed(data) {
-    const request = this._findRealRequest(data.requestId);
+  onLoadingFailed(event) {
+    const data = event.params;
+    const request = this._findRealRequestAndSetSession(data.requestId, event.sessionId);
     if (!request) return;
     request.onLoadingFailed(data);
     this.onRequestFinished(request);
   }
 
   /**
-   * @param {LH.Crdp.Network.ResourceChangedPriorityEvent} data
+   * @param {{params: LH.Crdp.Network.ResourceChangedPriorityEvent, sessionId?: string}} event
    */
-  onResourceChangedPriority(data) {
-    const request = this._findRealRequest(data.requestId);
+  onResourceChangedPriority(event) {
+    const data = event.params;
+    const request = this._findRealRequestAndSetSession(data.requestId, event.sessionId);
     if (!request) return;
     request.onResourceChangedPriority(data);
   }
@@ -309,18 +292,14 @@ class NetworkRecorder extends EventEmitter {
    * @param {LH.Protocol.RawEventMessage} event
    */
   dispatch(event) {
-    if (!event.method.startsWith('Network.')) {
-      return;
-    }
-
     switch (event.method) {
-      case 'Network.requestWillBeSent': return this.onRequestWillBeSent(event.params);
-      case 'Network.requestServedFromCache': return this.onRequestServedFromCache(event.params);
-      case 'Network.responseReceived': return this.onResponseReceived(event.params);
-      case 'Network.dataReceived': return this.onDataReceived(event.params);
-      case 'Network.loadingFinished': return this.onLoadingFinished(event.params);
-      case 'Network.loadingFailed': return this.onLoadingFailed(event.params);
-      case 'Network.resourceChangedPriority': return this.onResourceChangedPriority(event.params);
+      case 'Network.requestWillBeSent': return this.onRequestWillBeSent(event);
+      case 'Network.requestServedFromCache': return this.onRequestServedFromCache(event);
+      case 'Network.responseReceived': return this.onResponseReceived(event);
+      case 'Network.dataReceived': return this.onDataReceived(event);
+      case 'Network.loadingFinished': return this.onLoadingFinished(event);
+      case 'Network.loadingFailed': return this.onLoadingFailed(event);
+      case 'Network.resourceChangedPriority': return this.onResourceChangedPriority(event);
       default: return;
     }
   }
@@ -332,15 +311,18 @@ class NetworkRecorder extends EventEmitter {
    * message is referring.
    *
    * @param {string} requestId
+   * @param {string|undefined} sessionId
    * @return {NetworkRequest|undefined}
    */
-  _findRealRequest(requestId) {
+  _findRealRequestAndSetSession(requestId, sessionId) {
     let request = this._recordsById.get(requestId);
     if (!request || !request.isValid) return undefined;
 
     while (request.redirectDestination) {
       request = request.redirectDestination;
     }
+
+    request.setSession(sessionId);
 
     return request;
   }
@@ -369,7 +351,9 @@ class NetworkRecorder extends EventEmitter {
     for (const record of records) {
       const stackFrames = (record.initiator.stack && record.initiator.stack.callFrames) || [];
       const initiatorURL = record.initiator.url || (stackFrames[0] && stackFrames[0].url);
-      const initiator = recordsByURL.get(initiatorURL) || record.redirectSource;
+      // If we were redirected to this request, our initiator is that redirect, otherwise, it's the
+      // initiator provided by the protocol. See https://github.com/GoogleChrome/lighthouse/pull/7352/
+      const initiator = record.redirectSource || recordsByURL.get(initiatorURL);
       if (initiator) {
         record.setInitiatorRequest(initiator);
       }

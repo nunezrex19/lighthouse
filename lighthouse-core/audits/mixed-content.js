@@ -5,10 +5,10 @@
  */
 'use strict';
 
-const Audit = require('./audit');
-const URL = require('../lib/url-shim');
-const Util = require('../report/html/renderer/util');
-const NetworkRecords = require('../gather/computed/network-records.js');
+const Audit = require('./audit.js');
+const URL = require('../lib/url-shim.js');
+const I18n = require('../report/html/renderer/i18n.js');
+const NetworkRecords = require('../computed/network-records.js');
 
 /**
  * This audit checks which resources a page currently loads over HTTP which it
@@ -126,9 +126,11 @@ class MixedContent extends Audit {
         upgradeableResources.push(resource);
       }
 
-      const displayValue = `${Util.formatNumber(upgradeableResources.length)}
+      const i18n = new I18n(context.settings.locale);
+      const displayValue = `${i18n.formatNumber(upgradeableResources.length)}
           ${upgradeableResources.length === 1 ? 'request' : 'requests'}`;
 
+      /** @type {LH.Audit.Details.Table['headings']} */
       const headings = [
         {key: 'fullUrl', itemType: 'url', text: 'URL'},
       ];
@@ -138,7 +140,6 @@ class MixedContent extends Audit {
       const score = (secureRecords.length + 0.5 * upgradeableResources.length) / totalRecords;
 
       return {
-        rawValue: upgradeableResources.length === 0,
         score,
         displayValue: displayValue,
         details,

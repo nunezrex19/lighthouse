@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const Gatherer = require('../gatherer');
+const Gatherer = require('../gatherer.js');
 
 /* global fetch, URL, location */
 
@@ -32,7 +32,9 @@ class RobotsTxt extends Gatherer {
    * @return {Promise<LH.Artifacts['RobotsTxt']>}
    */
   afterPass(passContext) {
-    return passContext.driver.evaluateAsync(`(${getRobotsTxtContent.toString()}())`);
+    return passContext.driver.evaluateAsync(`(${getRobotsTxtContent.toString()}())`, {
+      useIsolation: true,
+    });
   }
 }
 

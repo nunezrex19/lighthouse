@@ -42,6 +42,7 @@
  * @property {number} [timeToFirstInteractive]
  * @property {number} [timeToConsistentlyInteractive]
  * @property {number} [speedIndex]
+ * @property {number} [largestContentfulPaint]
  */
 
 /**
@@ -51,21 +52,24 @@
  * @property {number} optimisticSI
  * @property {number} optimisticTTFCPUI
  * @property {number} optimisticTTI
+ * @property {number} optimisticLCP
  * @property {number} pessimisticFCP
  * @property {number} pessimisticFMP
  * @property {number} pessimisticSI
  * @property {number} pessimisticTTFCPUI
  * @property {number} pessimisticTTI
+ * @property {number} pessimisticLCP
  * @property {number} roughEstimateOfFCP
  * @property {number} roughEstimateOfFMP
  * @property {number} roughEstimateOfSI
  * @property {number} roughEstimateOfTTFCPUI
  * @property {number} roughEstimateOfTTI
+ * @property {number} roughEstimateOfLCP
  */
 
 const fs = require('fs');
 const path = require('path');
-const constants = require('./constants');
+const constants = require('./constants.js');
 const chalk = require('chalk').default;
 
 const GOOD_DIFF_AS_PERCENT_THRESHOLD = 0.2;
@@ -351,6 +355,10 @@ evaluateAndPrintAccuracy('speedIndex', 'optimisticSI');
 evaluateAndPrintAccuracy('speedIndex', 'pessimisticSI');
 evaluateAndPrintAccuracy('speedIndex', 'roughEstimateOfSI');
 
+evaluateAndPrintAccuracy('largestContentfulPaint', 'optimisticLCP');
+evaluateAndPrintAccuracy('largestContentfulPaint', 'pessimisticLCP');
+evaluateAndPrintAccuracy('largestContentfulPaint', 'roughEstimateOfLCP');
+
 const estimates = allEvaluations.filter(entry => entry.lanternMetric.includes('roughEstimate'));
 const baselineEstimates = baselineEvaluations.filter(entry =>
   entry.lanternMetric.includes('roughEstimate')
@@ -377,6 +385,11 @@ findAndPrintWorst10Sites('timeToConsistentlyInteractive', [
   'roughEstimateOfTTI',
 ]);
 findAndPrintWorst10Sites('speedIndex', ['optimisticSI', 'pessimisticSI', 'roughEstimateOfSI']);
+findAndPrintWorst10Sites('largestContentfulPaint', [
+  'optimisticLCP',
+  'pessimisticLCP',
+  'roughEstimateOfLCP',
+]);
 
 findAndPrintFixesRegressions();
 

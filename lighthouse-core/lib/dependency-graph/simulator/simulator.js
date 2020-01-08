@@ -5,11 +5,11 @@
  */
 'use strict';
 
-const BaseNode = require('../base-node');
-const TcpConnection = require('./tcp-connection');
-const ConnectionPool = require('./connection-pool');
-const DNSCache = require('./dns-cache');
-const mobileSlow4G = require('../../../config/constants').throttling.mobileSlow4G;
+const BaseNode = require('../base-node.js');
+const TcpConnection = require('./tcp-connection.js');
+const ConnectionPool = require('./connection-pool.js');
+const DNSCache = require('./dns-cache.js');
+const mobileSlow4G = require('../../../config/constants.js').throttling.mobileSlow4G;
 
 /** @typedef {BaseNode.Node} Node */
 /** @typedef {import('../network-node')} NetworkNode */
@@ -59,6 +59,8 @@ class Simulator {
     ), 1);
     this._cpuSlowdownMultiplier = this._options.cpuSlowdownMultiplier;
     this._layoutTaskMultiplier = this._cpuSlowdownMultiplier * this._options.layoutTaskMultiplier;
+    /** @type {Array<Node>} */
+    this._cachedNodeListByStartTime = [];
 
     // Properties reset on every `.simulate` call but duplicated here for type checking
     this._flexibleOrdering = false;
@@ -71,6 +73,11 @@ class Simulator {
     this._dns = new DNSCache({rtt: this._rtt});
     // @ts-ignore
     this._connectionPool = /** @type {ConnectionPool} */ (null);
+  }
+
+  /** @return {number} */
+  get rtt() {
+    return this._rtt;
   }
 
   /**
@@ -89,13 +96,16 @@ class Simulator {
   }
 
   /**
-   * Initializes the various state data structures such as _nodesReadyToStart and _nodesCompleted.
+   * Initializes the various state data structures such _nodeTimings and the _node Sets by state.
    */
   _initializeAuxiliaryData() {
     this._nodeTimings = new Map();
     this._numberInProgressByType = new Map();
 
     this._nodes = {};
+    this._cachedNodeListByStartTime = [];
+    // NOTE: We don't actually need *all* of these sets, but the clarity that each node progresses
+    // through the system is quite nice.
     for (const state of Object.values(NodeState)) {
       this._nodes[state] = new Set();
     }
@@ -134,6 +144,12 @@ class Simulator {
    * @param {number} queuedTime
    */
   _markNodeAsReadyToStart(node, queuedTime) {
+    const firstNodeIndexWithGreaterStartTime = this._cachedNodeListByStartTime
+      .findIndex(candidate => candidate.startTime > node.startTime);
+    const insertionIndex = firstNodeIndexWithGreaterStartTime === -1 ?
+      this._cachedNodeListByStartTime.length : firstNodeIndexWithGreaterStartTime;
+    this._cachedNodeListByStartTime.splice(insertionIndex, 0, node);
+
     this._nodes[NodeState.ReadyToStart].add(node);
     this._nodes[NodeState.NotReadyToStart].delete(node);
     this._setTimingData(node, {queuedTime});
@@ -144,6 +160,9 @@ class Simulator {
    * @param {number} startTime
    */
   _markNodeAsInProgress(node, startTime) {
+    const indexOfNodeToStart = this._cachedNodeListByStartTime.indexOf(node);
+    this._cachedNodeListByStartTime.splice(indexOfNodeToStart, 1);
+
     this._nodes[NodeState.InProgress].add(node);
     this._nodes[NodeState.ReadyToStart].delete(node);
     this._numberInProgressByType.set(node.type, this._numberInProgress(node.type) + 1);
@@ -182,14 +201,11 @@ class Simulator {
   }
 
   /**
-   * @param {Set<Node>} nodes
    * @return {Node[]}
    */
-  _getNodesSortedByStartTime(nodes) {
-    return Array.from(nodes).sort((nodeA, nodeB) => {
-      // Sort nodes by startTime to match original execution order
-      return nodeA.startTime - nodeB.startTime;
-    });
+  _getNodesSortedByStartTime() {
+    // Make a copy so we don't skip nodes due to concurrent modification
+    return Array.from(this._cachedNodeListByStartTime);
   }
 
   /**
@@ -209,8 +225,8 @@ class Simulator {
 
     if (node.type !== BaseNode.TYPES.NETWORK) throw new Error('Unsupported');
 
-    // If a network request is cached, we can always start it, so skip the connection checks
-    if (!node.fromDiskCache) {
+    // If a network request is connectionless, we can always start it, so skip the connection checks
+    if (!node.isConnectionless) {
       // Start a network request if we're not at max requests and a connection is available
       const numberOfActiveRequests = this._numberInProgress(node.type);
       if (numberOfActiveRequests >= this._maximumConcurrentRequests) return;
@@ -279,13 +295,19 @@ class Simulator {
 
     let timeElapsed = 0;
     if (networkNode.fromDiskCache) {
-      // Rough access time for seeking to location on disk and reading sequentially = 8ms + 20ms/MB
+      // Rough access time for seeking to location on disk and reading sequentially.
+      // 8ms per seek + 20ms/MB
       // @see http://norvig.com/21-days.html#answers
       const sizeInMb = (record.resourceSize || 0) / 1024 / 1024;
       timeElapsed = 8 + 20 * sizeInMb - timingData.timeElapsed;
+    } else if (networkNode.isNonNetworkProtocol) {
+      // Estimates for the overhead of a data URL in Chromium and the decoding time for base64-encoded data.
+      // 2ms per request + 10ms/MB
+      // @see traces on https://dopiaza.org/tools/datauri/examples/index.php
+      const sizeInMb = (record.resourceSize || 0) / 1024 / 1024;
+      timeElapsed = 2 + 10 * sizeInMb - timingData.timeElapsed;
     } else {
-      // If we're estimating time remaining, we already acquired a connection for this record, definitely non-null
-      const connection = /** @type {TcpConnection} */ (this._acquireConnection(record));
+      const connection = this._connectionPool.acquireActiveConnectionFromRecord(record);
       const dnsResolutionTime = this._dns.getTimeUntilResolution(record, {
         requestedAt: timingData.startTime,
         shouldUpdateCache: true,
@@ -327,7 +349,7 @@ class Simulator {
     const timingData = this._getTimingData(node);
     const isFinished = timingData.estimatedTimeElapsed === timePeriodLength;
 
-    if (node.type === BaseNode.TYPES.CPU || node.fromDiskCache) {
+    if (node.type === BaseNode.TYPES.CPU || node.isConnectionless) {
       return isFinished
         ? this._markNodeAsComplete(node, totalElapsedTime)
         : (timingData.timeElapsed += timePeriodLength);
@@ -336,8 +358,7 @@ class Simulator {
     if (node.type !== BaseNode.TYPES.NETWORK) throw new Error('Unsupported');
 
     const record = node.record;
-    // If we're updating the progress, we already acquired a connection for this record, definitely non-null
-    const connection = /** @type {TcpConnection} */ (this._acquireConnection(record));
+    const connection = this._connectionPool.acquireActiveConnectionFromRecord(record);
     const dnsResolutionTime = this._dns.getTimeUntilResolution(record, {
       requestedAt: timingData.startTime,
       shouldUpdateCache: true,
@@ -435,7 +456,7 @@ class Simulator {
     // loop as long as we have nodes in the queue or currently in progress
     while (nodesReadyToStart.size || nodesInProgress.size) {
       // move all possible queued nodes to in progress
-      for (const node of this._getNodesSortedByStartTime(nodesReadyToStart)) {
+      for (const node of this._getNodesSortedByStartTime()) {
         this._startNodeIfPossible(node, totalElapsedTime);
       }
 
@@ -487,7 +508,7 @@ module.exports = Simulator;
  * @typedef NodeTimingIntermediate
  * @property {number} [startTime]
  * @property {number} [endTime]
- * @property {number} [queuedTime]
+ * @property {number} [queuedTime] Helpful for debugging.
  * @property {number} [estimatedTimeElapsed]
  * @property {number} [timeElapsed]
  * @property {number} [timeElapsedOvershoot]

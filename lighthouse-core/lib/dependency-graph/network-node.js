@@ -5,8 +5,9 @@
  */
 'use strict';
 
-const BaseNode = require('./base-node');
-const NetworkRequest = require('../network-request');
+const BaseNode = require('./base-node.js');
+const NetworkRequest = require('../network-request.js');
+const URL = require('../url-shim.js');
 
 class NetworkNode extends BaseNode {
   /**
@@ -55,6 +56,23 @@ class NetworkNode extends BaseNode {
    */
   get fromDiskCache() {
     return !!this._record.fromDiskCache;
+  }
+
+  /**
+   * @return {boolean}
+   */
+  get isNonNetworkProtocol() {
+    return URL.NON_NETWORK_PROTOCOLS.includes(this._record.protocol);
+  }
+
+
+  /**
+   * Returns whether this network record can be downloaded without a TCP connection.
+   * During simulation we treat data coming in over a network connection separately from on-device data.
+   * @return {boolean}
+   */
+  get isConnectionless() {
+    return this.fromDiskCache || this.isNonNetworkProtocol;
   }
 
   /**

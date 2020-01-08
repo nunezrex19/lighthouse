@@ -9,6 +9,7 @@ module.exports = {
   // start with google standard style
   //     https://github.com/google/eslint-config-google/blob/master/index.js
   extends: ['eslint:recommended', 'google'],
+  plugins: ['eslint-plugin-local-rules'], // include custom rules
   env: {
     node: true,
     es6: true,
@@ -64,11 +65,22 @@ module.exports = {
       functions: 'never',
     }],
 
+    // Custom lighthouse rules
+    'local-rules/require-file-extension': 2,
+
     // Disabled rules
     'require-jsdoc': 0,
     'valid-jsdoc': 0,
     'arrow-parens': 0,
   },
+  overrides: [
+    {
+      files: ['lighthouse-cli/test/smokehouse/**/*expectations.js'],
+      rules: {
+        'max-len': 0,
+      },
+    },
+  ],
   parserOptions: {
     ecmaVersion: 2018,
     ecmaFeatures: {

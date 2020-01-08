@@ -16,21 +16,23 @@ const fs = require('fs');
  */
 
 /**
-  * @param {string} result
+  * Transform an LHR into a proto-friendly, mostly-compatible LHR.
+  * @param {LH.Result} lhr
+  * @return {LH.Result}
   */
-function processForProto(result) {
+function processForProto(lhr) {
   /** @type {LH.Result} */
-  const reportJson = JSON.parse(result);
+  const reportJson = JSON.parse(JSON.stringify(lhr));
 
   // Clean up the configSettings
   // Note: This is not strictly required for conversion if protobuf parsing is set to
   // 'ignore unknown fields' in the language of conversion.
   if (reportJson.configSettings) {
     // The settings that are in both proto and LHR
-    const {emulatedFormFactor, locale, onlyCategories} = reportJson.configSettings;
+    const {emulatedFormFactor, locale, onlyCategories, channel} = reportJson.configSettings;
 
     // @ts-ignore - intentionally only a subset of settings.
-    reportJson.configSettings = {emulatedFormFactor, locale, onlyCategories};
+    reportJson.configSettings = {emulatedFormFactor, locale, onlyCategories, channel};
   }
 
   // Remove runtimeError if it is NO_ERROR
@@ -43,19 +45,18 @@ function processForProto(result) {
     Object.keys(reportJson.audits).forEach(auditName => {
       const audit = reportJson.audits[auditName];
 
-      // Rewrite the 'not-applicable' scoreDisplayMode to 'not_applicable'. #6201
+      // Rewrite 'not-applicable' and 'not_applicable' scoreDisplayMode to 'notApplicable'. #6201, #6783.
       if (audit.scoreDisplayMode) {
-        if (audit.scoreDisplayMode === 'not-applicable') {
-          // @ts-ignore Breaking the LH.Result type
-          audit.scoreDisplayMode = 'not_applicable';
+        // @ts-ignore ts properly flags this as invalid as it should not happen,
+        // but remains in preprocessor to protect from proto translation errors from
+        // old LHRs.
+        // eslint-disable-next-line max-len
+        if (audit.scoreDisplayMode === 'not-applicable' || audit.scoreDisplayMode === 'not_applicable') {
+          audit.scoreDisplayMode = 'notApplicable';
         }
       }
-      // Drop raw values. #6199
-      if ('rawValue' in audit) {
-        delete audit.rawValue;
-      }
-      // Normalize displayValue to always be a string, not an array. #6200
 
+      // Normalize displayValue to always be a string, not an array. #6200
       if (Array.isArray(audit.displayValue)) {
         /** @type {Array<any>}*/
         const values = [];
@@ -96,7 +97,7 @@ function processForProto(result) {
 
   removeStrings(reportJson);
 
-  return JSON.stringify(reportJson);
+  return reportJson;
 }
 
 // @ts-ignore claims always false, but this checks if cli or module
@@ -114,9 +115,9 @@ if (require.main === module) {
 
   if (input && output) {
     // process the file
-    const report = processForProto(fs.readFileSync(input, 'utf-8'));
+    const report = processForProto(JSON.parse(fs.readFileSync(input, 'utf-8')));
     // write to output from argv
-    fs.writeFileSync(output, report, 'utf-8');
+    fs.writeFileSync(output, JSON.stringify(report), 'utf-8');
   }
 } else {
   module.exports = {

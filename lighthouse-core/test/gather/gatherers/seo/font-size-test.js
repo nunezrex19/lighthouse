@@ -7,12 +7,12 @@
 
 /* eslint-env jest */
 
-const FontSizeGather = require('../../../../gather/gatherers/seo/font-size');
+const FontSizeGather = require('../../../../gather/gatherers/seo/font-size.js');
 let fontSizeGather;
 
-const smallText = ' body small text ';
-const bigText = 'body big text';
-const failingText = 'failing text';
+const smallText = ' body sm𝐀ll text ';
+const bigText = 'body 𝐁ig text';
+const failingText = 'failing text 💩';
 const bodyNode = {nodeId: 3, backendNodeId: 102, nodeName: 'BODY', parentId: 1, fontSize: '10px'};
 const failingNode = {nodeId: 10, backendNodeId: 109, nodeName: 'P', parentId: 3};
 const nodes = [
@@ -122,9 +122,9 @@ describe('Font size gatherer', () => {
     };
 
     const artifact = await fontSizeGather.afterPass({driver});
-    const expectedFailingTextLength = smallText.trim().length;
-    const expectedTotalTextLength = bigText.trim().length +
-      failingText.trim().length + expectedFailingTextLength;
+    const expectedFailingTextLength = Array.from(smallText.trim()).length;
+    const expectedTotalTextLength = Array.from(bigText.trim()).length +
+      Array.from(failingText.trim()).length + expectedFailingTextLength;
     const expectedAnalyzedFailingTextLength = expectedFailingTextLength;
 
     expect(artifact).toEqual({
@@ -178,6 +178,7 @@ describe('Font size gatherer', () => {
 
     let inlineStyle;
     let matchedCSSRules;
+    let attributesStyle;
     let inherited;
 
     beforeEach(() => {
@@ -194,83 +195,98 @@ describe('Font size gatherer', () => {
 
       inlineStyle = createStyle({id: 1, properties: {'font-size': '1em'}});
       matchedCSSRules = [{matchingSelectors: [1], rule: fontRule}];
+      attributesStyle = {cssProperties: createProps({'font-size': '10px'})};
       inherited = [{matchedCSSRules: [{matchingSelectors: [0], rule: userAgentRule}]}];
     });
 
     it('should identify inline styles', () => {
       const result = FontSizeGather.getEffectiveFontRule({inlineStyle});
-      expect(result).toMatchInlineSnapshot(`
-Object {
-  "cssProperties": Array [
-    Object {
-      "name": "font-size",
-      "value": "1em",
-    },
-  ],
-  "styleSheetId": 1,
-  "type": "Inline",
-}
-`);
+      expect(result).toEqual({
+        cssProperties: [
+          {
+            name: 'font-size',
+            value: '1em',
+          },
+        ],
+        styleSheetId: 1,
+        type: 'Inline',
+      });
+    });
+
+    it('should identify attributes styles', () => {
+      const result = FontSizeGather.getEffectiveFontRule({attributesStyle});
+      expect(result).toEqual({
+        cssProperties: [
+          {
+            name: 'font-size',
+            value: '10px',
+          },
+        ],
+        type: 'Attributes',
+      });
     });
 
     it('should identify direct CSS rules', () => {
       const result = FontSizeGather.getEffectiveFontRule({matchedCSSRules});
-      expect(result).toMatchInlineSnapshot(`
-Object {
-  "cssProperties": Array [
-    Object {
-      "name": "font-size",
-      "value": "1em",
-    },
-  ],
-  "parentRule": Object {
-    "origin": "regular",
-    "selectors": Array [
-      Object {
-        "text": "html body *",
-      },
-      Object {
-        "text": "#main",
-      },
-    ],
-  },
-  "styleSheetId": 123,
-  "type": "Regular",
-}
-`);
+      expect(result).toEqual({
+        cssProperties: [
+          {
+            name: 'font-size',
+            value: '1em',
+          },
+        ],
+        parentRule: {
+          origin: 'regular',
+          selectors: [
+            {
+              text: 'html body *',
+            },
+            {
+              text: '#main',
+            },
+          ],
+        },
+        styleSheetId: 123,
+        type: 'Regular',
+      });
     });
 
     it('should identify inherited CSS rules', () => {
       const result = FontSizeGather.getEffectiveFontRule({inherited});
-      expect(result).toMatchInlineSnapshot(`
-Object {
-  "cssProperties": Array [
-    Object {
-      "name": "font-size",
-      "value": 12,
-    },
-  ],
-  "parentRule": Object {
-    "origin": "user-agent",
-    "selectors": Array [
-      Object {
-        "text": "body",
-      },
-    ],
-  },
-  "styleSheetId": undefined,
-  "type": "Regular",
-}
-`);
+      expect(result).toEqual({
+        cssProperties: [
+          {
+            name: 'font-size',
+            value: 12,
+          },
+        ],
+        parentRule: {
+          origin: 'user-agent',
+          selectors: [
+            {
+              text: 'body',
+            },
+          ],
+        },
+        styleSheetId: undefined,
+        type: 'Regular',
+      });
     });
 
     it('should respect precendence', () => {
-      let result = FontSizeGather.getEffectiveFontRule({inlineStyle, matchedCSSRules, inherited});
+      let result = FontSizeGather.getEffectiveFontRule(
+        {attributesStyle, inlineStyle, matchedCSSRules, inherited});
       expect(result).toMatchObject({type: 'Inline'});
-      result = FontSizeGather.getEffectiveFontRule({matchedCSSRules, inherited});
+
+      result = FontSizeGather.getEffectiveFontRule({attributesStyle, inherited});
+      expect(result).toMatchObject({type: 'Attributes'});
+
+      result = FontSizeGather.getEffectiveFontRule({attributesStyle, matchedCSSRules, inherited});
       expect(result.parentRule).toMatchObject({origin: 'regular'});
+
       result = FontSizeGather.getEffectiveFontRule({inherited});
       expect(result.parentRule).toMatchObject({origin: 'user-agent'});
+
       result = FontSizeGather.getEffectiveFontRule({});
       expect(result).toBe(undefined);
     });

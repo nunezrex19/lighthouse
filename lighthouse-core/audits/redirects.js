@@ -5,19 +5,19 @@
  */
 'use strict';
 
-const Audit = require('./audit');
-const UnusedBytes = require('./byte-efficiency/byte-efficiency-audit');
+const Audit = require('./audit.js');
+const UnusedBytes = require('./byte-efficiency/byte-efficiency-audit.js');
 const i18n = require('../lib/i18n/i18n.js');
-const TraceOfTab = require('../gather/computed/trace-of-tab.js');
-const NetworkRecords = require('../gather/computed/network-records.js');
-const MainResource = require('../gather/computed/main-resource.js');
-const LanternInteractive = require('../gather/computed/metrics/lantern-interactive.js');
+const TraceOfTab = require('../computed/trace-of-tab.js');
+const NetworkRecords = require('../computed/network-records.js');
+const MainResource = require('../computed/main-resource.js');
+const LanternInteractive = require('../computed/metrics/lantern-interactive.js');
 
 const UIStrings = {
   /** Imperative title of a Lighthouse audit that tells the user to eliminate the redirects taken through multiple URLs to load the page. This is shown in a list of audits that Lighthouse generates. */
   title: 'Avoid multiple page redirects',
   /** Description of a Lighthouse audit that tells users why they should reduce the number of server-side redirects on their page. This is displayed after a user expands the section to see more. No character length limits. 'Learn More' becomes link text to additional documentation. */
-  description: 'Redirects introduce additional delays before the page can be loaded. [Learn more](https://developers.google.com/web/tools/lighthouse/audits/redirects).',
+  description: 'Redirects introduce additional delays before the page can be loaded. [Learn more](https://web.dev/redirects).',
 };
 
 const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
@@ -98,7 +98,7 @@ class Redirects extends Audit {
       });
     }
 
-    /** @type {LH.Result.Audit.OpportunityDetails['headings']} */
+    /** @type {LH.Audit.Details.Opportunity['headings']} */
     const headings = [
       {key: 'url', valueType: 'url', label: str_(i18n.UIStrings.columnURL)},
       {key: 'wastedMs', valueType: 'timespanMs', label: str_(i18n.UIStrings.columnTimeSpent)},
@@ -108,7 +108,7 @@ class Redirects extends Audit {
     return {
       // We award a passing grade if you only have 1 redirect
       score: redirectRequests.length <= 2 ? 1 : UnusedBytes.scoreForWastedMs(totalWastedMs),
-      rawValue: totalWastedMs,
+      numericValue: totalWastedMs,
       displayValue: totalWastedMs ?
         str_(i18n.UIStrings.displayValueMsSavings, {wastedMs: totalWastedMs}) :
         '',

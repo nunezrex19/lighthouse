@@ -5,21 +5,23 @@
  */
 'use strict';
 
-const ByteEfficiencyAudit = require('./byte-efficiency-audit');
+const ByteEfficiencyAudit = require('./byte-efficiency-audit.js');
 const i18n = require('../../lib/i18n/i18n.js');
 
 const UIStrings = {
   /** Imperative title of a Lighthouse audit that tells the user to remove content from their CSS that isn’t needed immediately and instead load that content at a later time. This is displayed in a list of audit titles that Lighthouse generates. */
-  title: 'Defer unused CSS',
+  title: 'Remove unused CSS',
   /** Description of a Lighthouse audit that tells the user *why* they should defer loading any content in CSS that isn’t needed at page load. This is displayed after a user expands the section to see more. No word length limits. 'Learn More' becomes link text to additional documentation. */
-  description: 'Remove unused rules from stylesheets to reduce unnecessary ' +
-    'bytes consumed by network activity. ' +
-    '[Learn more](https://developers.google.com/web/tools/lighthouse/audits/unused-css).',
+  description: 'Remove dead rules from stylesheets and defer the loading of CSS not used for ' +
+    'above-the-fold content to reduce unnecessary bytes consumed by network activity. ' +
+    '[Learn more](https://web.dev/unused-css-rules).',
 };
 
 const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
 
-const IGNORE_THRESHOLD_IN_BYTES = 2048;
+// Allow 10KB of unused CSS to permit `:hover` and other styles not used on a non-interactive load.
+// @see https://github.com/GoogleChrome/lighthouse/issues/9353 for more discussion.
+const IGNORE_THRESHOLD_IN_BYTES = 10 * 1024;
 const PREVIEW_LENGTH = 100;
 
 /** @typedef {LH.Artifacts.CSSStyleSheetInfo & {networkRecord: LH.Artifacts.NetworkRequest, usedRules: Array<LH.Crdp.CSS.RuleUsage>}} StyleSheetInfo */
@@ -45,6 +47,10 @@ class UnusedCSSRules extends ByteEfficiencyAudit {
    */
   static indexStylesheetsById(styles, networkRecords) {
     const indexedNetworkRecords = networkRecords
+        // Some phantom network records appear with a 0 resourceSize that aren't real.
+        // A network record that has no size data is just as good as no network record at all for our
+        // purposes, so we'll just filter them out. https://github.com/GoogleChrome/lighthouse/issues/9684#issuecomment-532381611
+        .filter(record => record.resourceSize > 0)
         .reduce((indexed, record) => {
           indexed[record.url] = record;
           return indexed;
@@ -151,8 +157,7 @@ class UnusedCSSRules extends ByteEfficiencyAudit {
     }
 
     const usage = UnusedCSSRules.computeUsage(stylesheetInfo);
-    // @ts-ignore TODO(bckenny): fix index signature on ByteEfficiencyItem.
-    return Object.assign({url}, usage);
+    return {url, ...usage};
   }
 
   /**
@@ -173,7 +178,7 @@ class UnusedCSSRules extends ByteEfficiencyAudit {
           .map(sheetId => UnusedCSSRules.mapSheetToResult(indexedSheets[sheetId], pageUrl))
           .filter(sheet => sheet && sheet.wastedBytes > IGNORE_THRESHOLD_IN_BYTES);
 
-      /** @type {LH.Result.Audit.OpportunityDetails['headings']} */
+      /** @type {LH.Audit.Details.Opportunity['headings']} */
       const headings = [
         {key: 'url', valueType: 'url', label: str_(i18n.UIStrings.columnURL)},
         {key: 'totalBytes', valueType: 'bytes', label: str_(i18n.UIStrings.columnSize)},

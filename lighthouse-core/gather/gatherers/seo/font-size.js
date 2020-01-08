@@ -16,7 +16,8 @@
  * This gatherer collects stylesheet metadata by itself, instead of relying on the styles gatherer which is slow (because it parses the stylesheet content).
  */
 
-const Gatherer = require('../gatherer');
+const Gatherer = require('../gatherer.js');
+const Sentry = require('../../../lib/sentry.js');
 const FONT_SIZE_PROPERTY_NAME = 'font-size';
 const TEXT_NODE_BLOCK_LIST = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT']);
 const MINIMAL_LEGIBLE_FONT_SIZE_PX = 12;
@@ -161,13 +162,16 @@ function findInheritedCSSRule(inheritedEntries = []) {
  * @param {LH.Crdp.CSS.GetMatchedStylesForNodeResponse} matched CSS rules
  * @returns {NodeFontData['cssRule']|undefined}
  */
-function getEffectiveFontRule({inlineStyle, matchedCSSRules, inherited}) {
+function getEffectiveFontRule({attributesStyle, inlineStyle, matchedCSSRules, inherited}) {
   // Inline styles have highest priority
   if (hasFontSizeDeclaration(inlineStyle)) return {type: 'Inline', ...inlineStyle};
 
   // Rules directly referencing the node come next
   const matchedRule = findMostSpecificMatchedCSSRule(matchedCSSRules);
   if (matchedRule) return matchedRule;
+
+  // Then comes attributes styles (<font size="1">)
+  if (hasFontSizeDeclaration(attributesStyle)) return {type: 'Attributes', ...attributesStyle};
 
   // Finally, find an inherited property if there is one
   const inheritedRule = findInheritedCSSRule(inherited);
@@ -181,7 +185,8 @@ function getEffectiveFontRule({inlineStyle, matchedCSSRules, inherited}) {
  * @returns {number}
  */
 function getNodeTextLength(nodeValue) {
-  return nodeValue.trim().length;
+  // Array.from to count symbols not unicode code points. See: #6973
+  return !nodeValue ? 0 : Array.from(nodeValue.trim()).length;
 }
 
 /**
@@ -225,7 +230,14 @@ class FontSize extends Gatherer {
       .sort((a, b) => b.textLength - a.textLength)
       .slice(0, MAX_NODES_SOURCE_RULE_FETCHED)
       .map(async failingNode => {
-        failingNode.cssRule = await fetchSourceRule(driver, failingNode.node);
+        try {
+          const cssRule = await fetchSourceRule(driver, failingNode.node);
+          failingNode.cssRule = cssRule;
+        } catch (err) {
+          // The node was deleted. We don't need to distinguish between lack-of-rule
+          // due to a deleted node vs due to failed attribution, so just set to undefined.
+          failingNode.cssRule = undefined;
+        }
         return failingNode;
       });
 
@@ -383,6 +395,8 @@ class FontSize extends Gatherer {
 
     passContext.driver.off('CSS.styleSheetAdded', onStylesheetAdd);
 
+    // For the nodes whose computed style we could attribute to a stylesheet, assign
+    // the stylsheet to the data.
     analyzedFailingNodesData
       .filter(data => data.cssRule && data.cssRule.styleSheetId)
       // @ts-ignore - guaranteed to exist from the filter immediately above

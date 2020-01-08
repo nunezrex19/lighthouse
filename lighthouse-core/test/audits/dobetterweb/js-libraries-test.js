@@ -13,37 +13,38 @@ describe('Returns detected front-end JavaScript libraries', () => {
   it('always passes', () => {
     // no libraries
     const auditResult1 = JsLibrariesAudit.audit({
-      JSLibraries: [],
+      Stacks: [],
     });
-    assert.equal(auditResult1.rawValue, true);
+    assert.equal(auditResult1.score, 1);
 
     // duplicates. TODO: consider failing in this case
     const auditResult2 = JsLibrariesAudit.audit({
-      JSLibraries: [
-        {name: 'lib1', version: '3.10.1', npmPkgName: 'lib1'},
-        {name: 'lib2', version: null, npmPkgName: 'lib2'},
+      Stacks: [
+        {detector: 'js', id: 'lib1', name: 'lib1', version: '3.10.1', npm: 'lib1'},
+        {detector: 'js', id: 'lib2', name: 'lib2', version: undefined, npm: 'lib2'},
       ],
     });
-    assert.equal(auditResult2.rawValue, true);
+    assert.equal(auditResult2.score, 1);
 
     // LOTS of frontend libs
     const auditResult3 = JsLibrariesAudit.audit({
-      JSLibraries: [
-        {name: 'React', version: null, npmPkgName: 'react'},
-        {name: 'Polymer', version: null, npmPkgName: 'polymer-core'},
-        {name: 'Preact', version: null, npmPkgName: 'preact'},
-        {name: 'Angular', version: null, npmPkgName: 'angular'},
-        {name: 'jQuery', version: null, npmPkgName: 'jquery'},
+      Stacks: [
+        {detector: 'js', id: 'react', name: 'React', version: undefined, npm: 'react'},
+        {detector: 'js', id: 'polymer', name: 'Polymer', version: undefined, npm: 'polymer-core'},
+        {detector: 'js', id: 'preact', name: 'Preact', version: undefined, npm: 'preact'},
+        {detector: 'js', id: 'angular', name: 'Angular', version: undefined, npm: 'angular'},
+        {detector: 'js', id: 'jquery', name: 'jQuery', version: undefined, npm: 'jquery'},
       ],
     });
-    assert.equal(auditResult3.rawValue, true);
+    assert.equal(auditResult3.score, 1);
   });
 
   it('generates expected details', () => {
     const auditResult = JsLibrariesAudit.audit({
-      JSLibraries: [
-        {name: 'lib1', version: '3.10.1', npmPkgName: 'lib1'},
-        {name: 'lib2', version: null, npmPkgName: 'lib2'},
+      Stacks: [
+        {detector: 'js', id: 'lib1', name: 'lib1', version: '3.10.1', npm: 'lib1'},
+        {detector: 'js', id: 'lib2', name: 'lib2', version: undefined, npm: 'lib2'},
+        {detector: 'js', id: 'lib2-fast', name: 'lib2', version: undefined, npm: 'lib2'},
       ],
     });
     const expected = [
@@ -55,10 +56,14 @@ describe('Returns detected front-end JavaScript libraries', () => {
       {
         name: 'lib2',
         npm: 'lib2',
-        version: null,
+        version: undefined,
       },
     ];
-    assert.equal(auditResult.rawValue, true);
+    assert.equal(auditResult.score, 1);
     assert.deepStrictEqual(auditResult.details.items, expected);
+    assert.deepStrictEqual(auditResult.details.debugData.stacks[2], {
+      id: 'lib2-fast',
+      version: undefined,
+    });
   });
 });

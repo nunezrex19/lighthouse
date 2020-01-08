@@ -5,60 +5,10 @@
  */
 'use strict';
 
-/** @typedef {typeof import('./extension-entry.js') & {console: typeof console}} BackgroundPage */
+const SettingsController = require('./settings-controller.js');
 
-/**
- * Error strings that indicate a problem in how Lighthouse was run, not in
- * Lighthouse itself, mapped to more useful strings to report to the user.
- */
-const NON_BUG_ERROR_MESSAGES = {
-  'Another debugger': 'You probably have DevTools open. Close DevTools to use Lighthouse',
-  'multiple tabs': 'You probably have multiple tabs open to the same origin. ' +
-      'Close the other tabs to use Lighthouse.',
-  // The extension debugger API is forbidden from attaching to the web store.
-  // @see https://chromium.googlesource.com/chromium/src/+/5d1f214db0f7996f3c17cd87093d439ce4c7f8f1/chrome/common/extensions/chrome_extensions_client.cc#232
-  'The extensions gallery cannot be scripted': 'The Lighthouse extension cannot audit the ' +
-      'Chrome Web Store. If necessary, use the Lighthouse CLI to do so.',
-  'Cannot access a chrome': 'The Lighthouse extension cannot audit ' +
-      'Chrome-specific urls. If necessary, use the Lighthouse CLI to do so.',
-  // The user tries to review an error page or has network issues
-  'Unable to load the page': 'Unable to load the page. Please verify the url you ' +
-      'are trying to review.',
-  'Cannot access contents of the page': 'Lighthouse can only audit URLs that start' +
-      ' with http:// or https://.',
-  'INVALID_URL': 'Lighthouse can only audit URLs that start' +
-      ' with http:// or https://.',
-};
-
-const MAX_ISSUE_ERROR_LENGTH = 60;
-
-const subpageVisibleClass = 'subpage--visible';
-
-/** @type {?URL} */
-let siteURL = null;
-/** @type {boolean} */
-let isRunning = false;
-
-function getLighthouseVersion() {
-  return chrome.runtime.getManifest().version;
-}
-
-function getLighthouseCommitHash() {
-  return '__COMMITHASH__';
-}
-
-function getChromeVersion() {
-  // @ts-ignore
-  return /Chrome\/([0-9.]+)/.exec(navigator.userAgent)[1];
-}
-
-function showRunningSubpage() {
-  find('.status').classList.add(subpageVisibleClass);
-}
-
-function hideRunningSubpage() {
-  find('.status').classList.remove(subpageVisibleClass);
-}
+const VIEWER_URL = 'https://googlechrome.github.io/lighthouse/viewer/';
+const optionsVisibleClass = 'main--options-visible';
 
 /**
  * Guaranteed context.querySelector. Always returns an element or throws if
@@ -77,52 +27,6 @@ function find(query, context = document) {
 }
 
 /**
- * @param {Error} err
- * @return {HTMLAnchorElement}
- */
-function buildReportErrorLink(err) {
-  const issueBody = `
-**Lighthouse Version**: ${getLighthouseVersion()}
-**Lighthouse Commit**: ${getLighthouseCommitHash()}
-**Chrome Version**: ${getChromeVersion()}
-**Initial URL**: ${siteURL}
-**Error Message**: ${err.message}
-**Stack Trace**:
-\`\`\`
-${err.stack}
-\`\`\`
-    `;
-
-  const url = new URL('https://github.com/GoogleChrome/lighthouse/issues/new');
-
-  const errorTitle = err.message.substring(0, MAX_ISSUE_ERROR_LENGTH);
-  url.searchParams.append('title', `Extension Error: ${errorTitle}`);
-  url.searchParams.append('body', issueBody.trim());
-
-  const reportErrorEl = document.createElement('a');
-  reportErrorEl.className = 'button button--report-error';
-  reportErrorEl.href = url.href;
-  reportErrorEl.textContent = 'Report Error';
-  reportErrorEl.target = '_blank';
-
-  return reportErrorEl;
-}
-
-/**
- * @param {[string, string, string]} status
- */
-function logStatus([, message, details]) {
-  if (typeof details === 'string' && details.length > 110) {
-    // Grab 100 characters and up to the next comma, ellipsis for the rest
-    const hundredPlusChars = details.replace(/(.{100}.*?),.*/, '$1…');
-    details = hundredPlusChars;
-  }
-  find('.status__msg').textContent = message;
-  const statusDetailsMessageEl = find('.status__detailsmsg');
-  statusDetailsMessageEl.textContent = details;
-}
-
-/**
  * @param {string} text
  * @param {string} id
  * @param {boolean} isChecked
@@ -138,7 +42,7 @@ function createOptionItem(text, id, isChecked) {
 
   const label = document.createElement('label');
   label.appendChild(input);
-  label.appendChild(document.createTextNode(text));
+  label.appendChild(document.createElement('span')).textContent = text;
   const listItem = document.createElement('li');
   listItem.appendChild(label);
 
@@ -147,156 +51,133 @@ function createOptionItem(text, id, isChecked) {
 
 /**
  * Click event handler for Generate Report button.
- * @param {BackgroundPage} background Reference to the extension's background page.
- * @param {{selectedCategories: Array<string>, useDevTools: boolean}} settings
+ * @param {string} url
+ * @param {SettingsController.Settings} settings
  */
-async function onGenerateReportButtonClick(background, settings) {
-  if (isRunning) {
-    return;
+function onGenerateReportButtonClick(url, settings) {
+  const apiUrl = new URL(VIEWER_URL);
+  apiUrl.searchParams.append('psiurl', url);
+  apiUrl.searchParams.append('strategy', settings.device);
+  for (const category of settings.selectedCategories) {
+    apiUrl.searchParams.append('category', category);
   }
-  isRunning = true;
-
-  // resetting status message
-  const statusMsg = find('.status__msg');
-  statusMsg.textContent = 'Starting...';
-
-  showRunningSubpage();
-
-  const feedbackEl = find('.feedback');
-  feedbackEl.textContent = '';
-  const {selectedCategories, useDevTools} = settings;
-  /** @type {LH.Flags} */
-  const flags = {throttlingMethod: useDevTools ? 'devtools' : 'simulate'};
-
-  try {
-    await background.runLighthouseInExtension(flags, selectedCategories);
-
-    // Close popup once report is opened in a new tab
-    window.close();
-  } catch (err) {
-    let message = err.message;
-    let includeReportLink = true;
-
-    // Check for errors in how the user ran Lighthouse and replace with a more
-    // helpful message (and remove 'Report Error' link).
-    for (const [test, replacement] of Object.entries(NON_BUG_ERROR_MESSAGES)) {
-      if (message.includes(test)) {
-        message = replacement;
-        includeReportLink = false;
-        break;
-      }
-    }
-
-    feedbackEl.textContent = message;
-
-    if (includeReportLink) {
-      feedbackEl.className = 'feedback feedback-error';
-      feedbackEl.appendChild(buildReportErrorLink(err));
-    }
-
-    hideRunningSubpage();
-    background.console.error(err);
-  }
-
-  isRunning = false;
+  apiUrl.searchParams.append('utm_source', 'lh-chrome-ext');
+  window.open(apiUrl.href);
 }
 
 /**
  * Generates a document fragment containing a list of checkboxes and labels
  * for the categories.
- * @param {BackgroundPage} background Reference to the extension's background page.
- * @param {Array<string>} selectedCategories
+ * @param {SettingsController.Settings} settings
  */
-function generateOptionsList(background, selectedCategories) {
+function generateOptionsList(settings) {
   const frag = document.createDocumentFragment();
 
-  background.getDefaultCategories().forEach(category => {
-    const isChecked = selectedCategories.includes(category.id);
+  SettingsController.DEFAULT_CATEGORIES.forEach(category => {
+    const isChecked = settings.selectedCategories.includes(category.id);
     frag.appendChild(createOptionItem(category.title, category.id, isChecked));
   });
 
-  const optionsList = find('.options__list');
-  optionsList.appendChild(frag);
+  const optionsCategoriesList = find('.options__categories');
+  optionsCategoriesList.appendChild(frag);
+}
+
+function fillDevToolsShortcut() {
+  const el = find('.devtools-shortcut');
+  const isMac = /mac/i.test(navigator.platform);
+  el.textContent = isMac ? '⌘⌥I (Cmd+Opt+I)' : 'F12';
+}
+
+/**
+ * Create the settings from the state of the options form, save in storage, and return it.
+ * @returns {SettingsController.Settings}
+ */
+function readSettingsFromDomAndPersist() {
+  const optionsEl = find('.section--options');
+  // Save settings when options page is closed.
+  const checkboxes = /** @type {NodeListOf<HTMLInputElement>} */
+    (optionsEl.querySelectorAll('.options__categories input:checked'));
+  const selectedCategories = Array.from(checkboxes).map(input => input.value);
+  const device = /** @type {HTMLInputElement} */ (find('input[name="device"]:checked')).value;
+
+  const settings = {
+    selectedCategories,
+    device,
+  };
+  SettingsController.saveSettings(settings);
+  return settings;
+}
+
+/**
+ * @return {Promise<URL>}
+ */
+function getSiteUrl() {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({active: true, lastFocusedWindow: true}, function(tabs) {
+      if (tabs.length === 0 || !tabs[0].url) {
+        return;
+      }
+
+      const url = new URL(tabs[0].url);
+      if (url.hostname === 'localhost') {
+        reject(new Error('Use DevTools to audit pages on localhost.'));
+      } else if (/^(chrome|about)/.test(url.protocol)) {
+        reject(new Error(`Cannot audit ${url.protocol}// pages.`));
+      } else {
+        resolve(url);
+      }
+    });
+  });
 }
 
 /**
  * Initializes the popup's state and UI elements.
  */
 async function initPopup() {
-  chrome.tabs.query({active: true, lastFocusedWindow: true}, function(tabs) {
-    if (tabs.length === 0) {
-      return;
-    }
+  fillDevToolsShortcut();
 
-    siteURL = new URL(tabs[0].url || '');
+  const mainEl = find('main');
+  const optionsEl = find('.button--configure');
+  const generateReportButton = /** @type {HTMLButtonElement} */ (find('.button--generate'));
+  const configureButton = /** @type {HTMLButtonElement} */ (find('.button--configure'));
+  const psiDisclaimerEl = find('.psi-disclaimer');
+  const errorMessageEl = find('.errormsg');
+  const optionsFormEl = find('.options__form');
 
-    // Show the user what URL is going to be tested.
-    find('header h2').textContent = siteURL.origin;
-  });
-
-  /**
-   * Really the Window of the background page, but since we only want what's exposed
-   * on window in extension-entry.js, use its module API as the type.
-   * @type {BackgroundPage}
-   */
-  const background = await new Promise(resolve => chrome.runtime.getBackgroundPage(resolve));
-
-  // To prevent visual hiccups when opening the popup, we default the subpage
-  // to the "running" view and switch to the default view once we're sure
-  // Lighthouse is not already auditing the page. This change was necessary
-  // now that fetching the background event page is async.
-  if (background.isRunning()) {
-    showRunningSubpage();
-  } else {
-    hideRunningSubpage();
+  /** @type {URL} */
+  let siteUrl;
+  /** @type {SettingsController.Settings} */
+  let settings;
+  try {
+    siteUrl = await getSiteUrl();
+    settings = await SettingsController.loadSettings();
+  } catch (err) {
+    // Disable everything. A navigation might allow for a working state,
+    // but it's very hard to keep an extension popup alive during a popup
+    // so we don't need to handle reacting to it.
+    generateReportButton.disabled = true;
+    configureButton.disabled = true;
+    psiDisclaimerEl.remove();
+    errorMessageEl.textContent = err.message;
+    return;
   }
 
-  background.listenForStatus(logStatus);
+  // Generate checkboxes from saved settings.
+  generateOptionsList(settings);
+  const selectedDeviceEl = /** @type {HTMLInputElement} */ (
+    find(`.options__device input[value="${settings.device}"]`));
+  selectedDeviceEl.checked = true;
 
-  // generate checkboxes from saved settings
-  background.loadSettings().then(settings => {
-    generateOptionsList(background, settings.selectedCategories);
-    const lanternCheck = /** @type {HTMLInputElement} */ (find('#lantern-checkbox'));
-    lanternCheck.checked = !settings.useDevTools;
-  });
-
-  // bind throttling control button
-  const lanternCheckbox = /** @type {HTMLInputElement} */ (find('#lantern-checkbox'));
-  lanternCheckbox.addEventListener('change', async () => {
-    const settings = await background.loadSettings();
-    settings.useDevTools = !lanternCheckbox.checked;
-    background.saveSettings(settings);
-  });
-
-  // bind Generate Report button
-  const generateReportButton = find('#generate-report');
   generateReportButton.addEventListener('click', () => {
-    background.loadSettings().then(settings => {
-      onGenerateReportButtonClick(background, settings);
-    });
+    onGenerateReportButtonClick(siteUrl.href, settings);
   });
 
-  // bind View Options button
-  const generateOptionsEl = find('#configure-options');
-  const optionsEl = find('.options');
-  generateOptionsEl.addEventListener('click', () => {
-    optionsEl.classList.add(subpageVisibleClass);
+  optionsEl.addEventListener('click', () => {
+    mainEl.classList.toggle(optionsVisibleClass);
   });
 
-  // bind Save Options button
-  const okButton = find('#ok');
-  okButton.addEventListener('click', () => {
-    // Save settings when options page is closed.
-    const checkboxes = /** @type {NodeListOf<HTMLInputElement>} */
-      (optionsEl.querySelectorAll(':checked'));
-    const selectedCategories = Array.from(checkboxes).map(input => input.value);
-
-    background.saveSettings({
-      useDevTools: !lanternCheckbox.checked,
-      selectedCategories,
-    });
-
-    optionsEl.classList.remove(subpageVisibleClass);
+  optionsFormEl.addEventListener('change', () => {
+    settings = readSettingsFromDomAndPersist();
   });
 }
 

@@ -5,9 +5,22 @@
  */
 'use strict';
 
-const MultiCheckAudit = require('./multi-check-audit');
-const ManifestValues = require('../gather/computed/manifest-values');
+const MultiCheckAudit = require('./multi-check-audit.js');
+const ManifestValues = require('../computed/manifest-values.js');
 const cssParsers = require('cssstyle/lib/parsers');
+const i18n = require('../lib/i18n/i18n.js');
+
+const UIStrings = {
+  /** Title of a Lighthouse audit that provides detail on the theme color the web page has set for the browser's address bar. This descriptive title is shown to users when an address-bar theme color has been set. */
+  title: 'Sets a theme color for the address bar.',
+  /** Title of a Lighthouse audit that provides detail on the theme color the web page has set for the browser's address bar. This descriptive title is shown to users when an address-bar theme color has not been set. */
+  failureTitle: 'Does not set a theme color for the address bar.',
+  /** Description of a Lighthouse audit that tells the user why they should set a theme color for the browser's address bar. This is displayed after a user expands the section to see more. No character length limits. 'Learn More' becomes link text to additional documentation. */
+  description: 'The browser address bar can be themed to match your site. ' +
+    '[Learn more](https://web.dev/themed-omnibox).',
+};
+
+const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
 
 /**
  * @fileoverview
@@ -26,11 +39,10 @@ class ThemedOmnibox extends MultiCheckAudit {
   static get meta() {
     return {
       id: 'themed-omnibox',
-      title: 'Address bar matches brand colors',
-      failureTitle: 'Address bar does not match brand colors',
-      description: 'The browser address bar can be themed to match your site. ' +
-          '[Learn more](https://developers.google.com/web/tools/lighthouse/audits/address-bar).',
-      requiredArtifacts: ['Manifest', 'ThemeColor'],
+      title: str_(UIStrings.title),
+      failureTitle: str_(UIStrings.failureTitle),
+      description: str_(UIStrings.description),
+      requiredArtifacts: ['WebAppManifest', 'MetaElements'],
     };
   }
 
@@ -43,13 +55,14 @@ class ThemedOmnibox extends MultiCheckAudit {
   }
 
   /**
-   * @param {LH.Artifacts['ThemeColor']} themeColorMeta
+   * @param {LH.Artifacts.MetaElement|undefined} themeColorMeta
    * @param {Array<string>} failures
    */
   static assessMetaThemecolor(themeColorMeta, failures) {
-    if (themeColorMeta === null) {
+    if (!themeColorMeta) {
+      // TODO(#7238): i18n
       failures.push('No `<meta name="theme-color">` tag found');
-    } else if (!ThemedOmnibox.isValidColor(themeColorMeta)) {
+    } else if (!ThemedOmnibox.isValidColor(themeColorMeta.content || '')) {
       failures.push('The theme-color meta tag did not contain a valid CSS color');
     }
   }
@@ -79,16 +92,18 @@ class ThemedOmnibox extends MultiCheckAudit {
     /** @type {Array<string>} */
     const failures = [];
 
-    const manifestValues = await ManifestValues.request(artifacts.Manifest, context);
+    const themeColorMeta = artifacts.MetaElements.find(meta => meta.name === 'theme-color');
+    const manifestValues = await ManifestValues.request(artifacts.WebAppManifest, context);
     ThemedOmnibox.assessManifest(manifestValues, failures);
-    ThemedOmnibox.assessMetaThemecolor(artifacts.ThemeColor, failures);
+    ThemedOmnibox.assessMetaThemecolor(themeColorMeta, failures);
 
     return {
       failures,
       manifestValues,
-      themeColor: artifacts.ThemeColor,
+      themeColor: (themeColorMeta && themeColorMeta.content) || null,
     };
   }
 }
 
 module.exports = ThemedOmnibox;
+module.exports.UIStrings = UIStrings;

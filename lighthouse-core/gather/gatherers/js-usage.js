@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const Gatherer = require('./gatherer');
+const Gatherer = require('./gatherer.js');
 
 /**
  * @fileoverview Tracks unused JavaScript
@@ -16,7 +16,7 @@ class JsUsage extends Gatherer {
    */
   async beforePass(passContext) {
     await passContext.driver.sendCommand('Profiler.enable');
-    await passContext.driver.sendCommand('Profiler.startPreciseCoverage');
+    await passContext.driver.sendCommand('Profiler.startPreciseCoverage', {detailed: false});
   }
 
   /**
