@@ -104,7 +104,7 @@ class ReportRenderer {
         description: Util.i18n.formatDateTime(report.fetchTime)},
       ...envValues,
       {name: Util.i18n.strings.runtimeSettingsUA, description: report.userAgent},
-      {name: Util.i18n.strings.runtimeSettingsUANet, description: report.environment &&
+      {name: Util.i18n.strings.runtimeSettingsUANetwork, description: report.environment &&
         report.environment.networkUserAgent},
       {name: Util.i18n.strings.runtimeSettingsBenchmark, description: report.environment &&
         report.environment.benchmarkIndex.toFixed(0)},

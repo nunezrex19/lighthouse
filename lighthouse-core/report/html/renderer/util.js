@@ -570,7 +570,7 @@ Util.UIStrings = {
   /** Label for a row in a table that shows the User Agent that was detected on the Host machine that ran Lighthouse. */
   runtimeSettingsUA: 'User agent (host)',
   /** Label for a row in a table that shows the User Agent that was used to send out all network requests during the Lighthouse run. */
-  runtimeSettingsUANet: 'User agent (network)',
+  runtimeSettingsUANetwork: 'User agent (network)',
   /** Label for a row in a table that shows the estimated CPU power of the machine running Lighthouse. Example row values: 532, 1492, 783. */
   runtimeSettingsBenchmark: 'CPU/Memory Power',
 

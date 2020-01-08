@@ -1616,7 +1616,7 @@
   "lighthouse-core/report/html/renderer/util.js | runtimeSettingsUA": {
     "message": "Ûśêŕ âǵêńt̂ (h́ôśt̂)"
   },
-  "lighthouse-core/report/html/renderer/util.js | runtimeSettingsUANet": {
+  "lighthouse-core/report/html/renderer/util.js | runtimeSettingsUANetwork": {
     "message": "Ûśêŕ âǵêńt̂ (ńêt́ŵór̂ḱ)"
   },
   "lighthouse-core/report/html/renderer/util.js | runtimeSettingsUrl": {

@@ -1616,7 +1616,7 @@
   "lighthouse-core/report/html/renderer/util.js | runtimeSettingsUA": {
     "message": "User agent (host)"
   },
-  "lighthouse-core/report/html/renderer/util.js | runtimeSettingsUANet": {
+  "lighthouse-core/report/html/renderer/util.js | runtimeSettingsUANetwork": {
     "message": "User agent (network)"
   },
   "lighthouse-core/report/html/renderer/util.js | runtimeSettingsUrl": {
