@@ -641,9 +641,7 @@ class DropDown {
 
     // Fill in all i18n data.
     this._dom.findAll('[data-i18n]', this._menuEl).forEach(row => {
-      const i18nAttr = row.getAttribute('data-i18n');
-      // @ts-ignore The 'data-i18n' fields always exist in this block,
-      // and are always a LH.I18NRendererStrings string.
+      const i18nAttr = /** @type {keyof LH.I18NRendererStrings} */ (row.getAttribute('data-i18n'));
       row.textContent = Util.i18n.strings[i18nAttr];
     });
   }
