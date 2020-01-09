@@ -59,7 +59,7 @@ describe('Offline start_url audit', () => {
     };
 
     const artifacts = {
-      WebAppManifest: getManifest(manifest),
+      WebAppManifest: {manifest: getManifest(manifest), installabilityErrors: []},
       StartUrl: {statusCode: 200},
     };
     const context = generateMockAuditContext();

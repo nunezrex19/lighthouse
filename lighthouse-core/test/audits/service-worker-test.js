@@ -55,7 +55,10 @@ function createArtifacts(swOpts, finalUrl, manifestJson) {
   if (manifestJson === null) {
     WebAppManifest = null;
   } else if (typeof manifestJson === 'object') {
-    WebAppManifest = manifestParser(JSON.stringify(manifestJson), manifestUrl, finalUrl);
+    WebAppManifest = {
+      manifest: manifestParser(JSON.stringify(manifestJson), manifestUrl, finalUrl),
+      installabilityErrors: [],
+    };
   } else {
     throw new Error('unsupported test manifest format');
   }

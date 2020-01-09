@@ -17,7 +17,12 @@ describe('StartUrl Gatherer', () => {
   let gatherer;
 
   function createArtifactsWithURL(url) {
-    return {WebAppManifest: {value: {start_url: {value: url}}}};
+    return {
+      WebAppManifest: {
+        manifest: {value: {start_url: {value: url}}},
+        installabilityErrors: [],
+      },
+    };
   }
 
   function unimplemented() {
