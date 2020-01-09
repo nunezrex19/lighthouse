@@ -28,8 +28,8 @@ function getMockContext() {
 function noUrlManifestParser(manifestSrc) {
   const EXAMPLE_MANIFEST_URL = 'https://example.com/manifest.json';
   const EXAMPLE_DOC_URL = 'https://example.com/index.html';
-
-  return manifestParser(manifestSrc, EXAMPLE_MANIFEST_URL, EXAMPLE_DOC_URL);
+  const manifest = manifestParser(manifestSrc, EXAMPLE_MANIFEST_URL, EXAMPLE_DOC_URL);
+  return {manifest, installabilityErrors: []};
 }
 
 describe('ManifestValues computed artifact', () => {
@@ -103,20 +103,20 @@ describe('ManifestValues computed artifact', () => {
     const check = ManifestValues.manifestChecks.find(i => i.id === 'hasPWADisplayValue');
 
     it('passes accepted values', () => {
-      let WebAppManifest;
-      WebAppManifest = noUrlManifestParser(JSON.stringify({display: 'minimal-ui'}));
-      assert.equal(check.validate(WebAppManifest.value), true, 'doesnt pass minimal-ui');
-      WebAppManifest = noUrlManifestParser(JSON.stringify({display: 'standalone'}));
-      assert.equal(check.validate(WebAppManifest.value), true, 'doesnt pass standalone');
-      WebAppManifest = noUrlManifestParser(JSON.stringify({display: 'fullscreen'}));
-      assert.equal(check.validate(WebAppManifest.value), true, 'doesnt pass fullscreen');
+      let manifestValue;
+      manifestValue = noUrlManifestParser(JSON.stringify({display: 'minimal-ui'})).manifest.value;
+      assert.equal(check.validate(manifestValue), true, 'doesnt pass minimal-ui');
+      manifestValue = noUrlManifestParser(JSON.stringify({display: 'standalone'})).manifest.value;
+      assert.equal(check.validate(manifestValue), true, 'doesnt pass standalone');
+      manifestValue = noUrlManifestParser(JSON.stringify({display: 'fullscreen'})).manifest.value;
+      assert.equal(check.validate(manifestValue), true, 'doesnt pass fullscreen');
     });
     it('fails invalid values', () => {
-      let WebAppManifest;
-      WebAppManifest = noUrlManifestParser(JSON.stringify({display: 'display'}));
-      assert.equal(check.validate(WebAppManifest.value), false, 'doesnt fail display');
-      WebAppManifest = noUrlManifestParser(JSON.stringify({display: ''}));
-      assert.equal(check.validate(WebAppManifest.value), false, 'doesnt fail empty string');
+      let manifestValue;
+      manifestValue = noUrlManifestParser(JSON.stringify({display: 'display'})).manifest.value;
+      assert.equal(check.validate(manifestValue), false, 'doesnt fail display');
+      manifestValue = noUrlManifestParser(JSON.stringify({display: ''})).manifest.value;
+      assert.equal(check.validate(manifestValue), false, 'doesnt fail empty string');
     });
   });
 
