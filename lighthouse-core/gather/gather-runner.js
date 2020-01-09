@@ -538,23 +538,12 @@ class GatherRunner {
     const response = await passContext.driver.getAppManifest();
     if (!response) return null;
     const manifest = manifestParser(response.data, response.url, passContext.url);
+    const {errors} = await passContext.driver.sendCommand('Page.getInstallabilityErrors')
 
-    // Add a warning for icons that aren't fetchable.
-    if (manifest.value && Array.isArray(manifest.value.icons.value)) {
-      const iconsToFetch = manifest.value.icons.value
-        .filter(icon => icon.value.src.value);
-      const fetchPromises = iconsToFetch.map(async icon => {
-        const expression = `(${pageFunctions.fetchIsOkString})(
-          ${JSON.stringify(icon.value.src.value)}
-        )`;
-        if (!await passContext.driver.evaluateAsync(expression, {useIsolation: true})) {
-          icon.warning = 'Error fetching icon';
-        }
-      });
-      await Promise.all(fetchPromises);
-    }
-
-    return manifest;
+    return {
+      manifest,
+      installabilityErrors: errors,
+    };
   }
 
   /**

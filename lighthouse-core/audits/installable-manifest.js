@@ -73,6 +73,7 @@ class InstallableManifest extends MultiCheckAudit {
       'hasStartUrl',
       'hasPWADisplayValue',
       'hasIconsAtLeast192px',
+      'fetchesIcon',
     ];
     manifestValues.allChecks
       .filter(item => bannerCheckIds.includes(item.id))

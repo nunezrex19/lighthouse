@@ -336,7 +336,10 @@ declare global {
       }
 
       // TODO(bckenny): real type for parsed manifest.
-      export type Manifest = ReturnType<typeof parseManifest>;
+      export type Manifest = {
+        manifest: ReturnType<typeof parseManifest>;
+        installabilityErrors: string[];
+      };
 
       export interface ImageElement {
         src: string;
@@ -435,7 +438,7 @@ declare global {
         }
       }
 
-      export type ManifestValueCheckID = 'hasStartUrl'|'hasIconsAtLeast192px'|'hasIconsAtLeast512px'|'hasPWADisplayValue'|'hasBackgroundColor'|'hasThemeColor'|'hasShortName'|'hasName'|'shortNameLength';
+      export type ManifestValueCheckID = 'hasStartUrl'|'hasIconsAtLeast192px'|'hasIconsAtLeast512px'|'fetchesIcon'|'hasPWADisplayValue'|'hasBackgroundColor'|'hasThemeColor'|'hasShortName'|'hasName'|'shortNameLength';
 
       export type ManifestValues = {
         isParseFailure: false;
