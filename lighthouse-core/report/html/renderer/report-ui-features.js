@@ -640,10 +640,10 @@ class DropDown {
     this._menuEl.addEventListener('click', menuClickHandler);
 
     // Fill in all i18n data.
-    this._dom.findAll('[data-i18n]', this._menuEl).forEach(row => {
-      const i18nAttr = /** @type {keyof LH.I18NRendererStrings} */ (row.getAttribute('data-i18n'));
-      row.textContent = Util.i18n.strings[i18nAttr];
-    });
+    for (const node of this._dom.findAll('[data-i18n]', this._menuEl)) {
+      const i18nAttr = /** @type {keyof LH.I18NRendererStrings} */ (node.getAttribute('data-i18n'));
+      node.textContent = Util.i18n.strings[i18nAttr];
+    }
   }
 
   close() {
