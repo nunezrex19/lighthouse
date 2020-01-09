@@ -18,7 +18,7 @@ function generateMockArtifacts(src = manifestSrc) {
   const exampleManifest = manifestParser(src, EXAMPLE_MANIFEST_URL, EXAMPLE_DOC_URL);
 
   const clonedArtifacts = JSON.parse(JSON.stringify({
-    WebAppManifest: exampleManifest,
+    WebAppManifest: {manifest: exampleManifest, installabilityErrors: []},
     URL: {finalUrl: 'https://example.com'},
   }));
   return clonedArtifacts;
@@ -44,8 +44,7 @@ describe('PWA: webapp install banner audit', () => {
     });
 
     it('fails with a non-parsable manifest', () => {
-      const artifacts = generateMockArtifacts();
-      artifacts.WebAppManifest = manifestParser('{,:}', EXAMPLE_MANIFEST_URL, EXAMPLE_DOC_URL);
+      const artifacts = generateMockArtifacts('{,:}');
       const context = generateMockAuditContext();
       return InstallableManifestAudit.audit(artifacts, context).then(result => {
         assert.strictEqual(result.score, 0);
@@ -54,13 +53,12 @@ describe('PWA: webapp install banner audit', () => {
     });
 
     it('fails when an empty manifest is present', () => {
-      const artifacts = generateMockArtifacts();
-      artifacts.WebAppManifest = manifestParser('{}', EXAMPLE_MANIFEST_URL, EXAMPLE_DOC_URL);
+      const artifacts = generateMockArtifacts('{}');
       const context = generateMockAuditContext();
       return InstallableManifestAudit.audit(artifacts, context).then(result => {
         assert.strictEqual(result.score, 0);
         assert.ok(result.explanation);
-        assert.strictEqual(result.details.items[0].failures.length, 4);
+        assert.strictEqual(result.details.items[0].failures.length, 5);
       });
     });
 
@@ -76,7 +74,7 @@ describe('PWA: webapp install banner audit', () => {
   describe('one-off-failures', () => {
     it('fails when a manifest contains no start_url', () => {
       const artifacts = generateMockArtifacts();
-      artifacts.WebAppManifest.value.start_url.value = undefined;
+      artifacts.WebAppManifest.manifest.value.start_url.value = undefined;
       const context = generateMockAuditContext();
 
       return InstallableManifestAudit.audit(artifacts, context).then(result => {
@@ -92,7 +90,7 @@ describe('PWA: webapp install banner audit', () => {
 
     it('fails when a manifest contains no short_name', () => {
       const artifacts = generateMockArtifacts();
-      artifacts.WebAppManifest.value.short_name.value = undefined;
+      artifacts.WebAppManifest.manifest.value.short_name.value = undefined;
       const context = generateMockAuditContext();
 
       return InstallableManifestAudit.audit(artifacts, context).then(result => {
@@ -108,7 +106,7 @@ describe('PWA: webapp install banner audit', () => {
 
     it('fails when a manifest contains no name', () => {
       const artifacts = generateMockArtifacts();
-      artifacts.WebAppManifest.value.name.value = undefined;
+      artifacts.WebAppManifest.manifest.value.name.value = undefined;
       const context = generateMockAuditContext();
 
       return InstallableManifestAudit.audit(artifacts, context).then(result => {
@@ -124,7 +122,7 @@ describe('PWA: webapp install banner audit', () => {
 
     it('fails if page had no icons in the manifest', () => {
       const artifacts = generateMockArtifacts();
-      artifacts.WebAppManifest.value.icons.value = [];
+      artifacts.WebAppManifest.manifest.value.icons.value = [];
       const context = generateMockAuditContext();
 
       return InstallableManifestAudit.audit(artifacts, context).then(result => {
@@ -132,7 +130,7 @@ describe('PWA: webapp install banner audit', () => {
         assert.ok(result.explanation.includes('PNG icon'), result.explanation);
 
         const details = result.details.items[0];
-        assert.strictEqual(details.failures.length, 1, details.failures);
+        assert.strictEqual(details.failures.length, 2, details.failures);
         assert.strictEqual(details.hasStartUrl, true);
         assert.strictEqual(details.hasIconsAtLeast192px, false);
       });

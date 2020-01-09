@@ -13,7 +13,6 @@ const NetworkAnalyzer = require('../lib/dependency-graph/simulator/network-analy
 const NetworkRecorder = require('../lib/network-recorder.js');
 const constants = require('../config/constants.js');
 const i18n = require('../lib/i18n/i18n.js');
-const pageFunctions = require('../lib/page-functions.js');
 
 /** @typedef {import('../gather/driver.js')} Driver */
 
@@ -538,7 +537,7 @@ class GatherRunner {
     const response = await passContext.driver.getAppManifest();
     if (!response) return null;
     const manifest = manifestParser(response.data, response.url, passContext.url);
-    const {errors} = await passContext.driver.sendCommand('Page.getInstallabilityErrors')
+    const {errors} = await passContext.driver.sendCommand('Page.getInstallabilityErrors');
 
     return {
       manifest,

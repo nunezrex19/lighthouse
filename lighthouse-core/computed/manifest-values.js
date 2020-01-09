@@ -51,7 +51,7 @@ class ManifestValues {
           ];
           return icons.doExist(manifestValue) &&
             !failedToFetchIconErrors.some(error => installabilityErrors.includes(error));
-        }
+        },
       },
       {
         id: 'hasPWADisplayValue',
