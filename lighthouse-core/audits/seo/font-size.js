@@ -24,8 +24,6 @@ const UIStrings = {
   /** Explanatory message stating that there was a failure in an audit caused by a missing page viewport meta tag configuration. "viewport" and "meta" are HTML terms and should not be translated. */
   explanationViewport: 'Text is illegible because there\'s no viewport meta tag optimized ' +
     'for mobile screens.',
-  /** Explanatory message stating that there was a failure in an audit caused by a certain percentage of the text on the page being too small. "decimalProportion" will be replaced by a percentage between 0 and 100%. */
-  explanation: '{decimalProportion, number, extendedPercent} of text is too small.',
 };
 
 const str_ = i18n.createMessageInstanceIdFn(__filename, UIStrings);
@@ -317,19 +315,10 @@ class FontSize extends Audit {
     const details = Audit.makeTableDetails(headings, tableData);
     const passed = percentageOfPassingText >= MINIMAL_PERCENTAGE_OF_LEGIBLE_TEXT;
 
-    let explanation;
-    if (!passed) {
-      const percentageOfFailingText = (100 - percentageOfPassingText) / 100;
-      explanation = str_(UIStrings.explanation, {
-        decimalProportion: percentageOfFailingText,
-      });
-    }
-
     return {
       score: Number(passed),
       details,
       displayValue,
-      explanation,
     };
   }
 }

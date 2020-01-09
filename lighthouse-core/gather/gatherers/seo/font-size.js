@@ -179,7 +179,7 @@ function getEffectiveFontRule({attributesStyle, inlineStyle, matchedCSSRules, in
  * @param {string} text
  * @returns {number}
  */
-function getNodeTextLength(text) {
+function getTextLength(text) {
   // Array.from to count symbols not unicode code points. See: #6973
   return !text ? 0 : Array.from(text.trim()).length;
 }
@@ -270,7 +270,7 @@ class FontSize extends Gatherer {
         const fontSize = parseFloat(strings[fontSizeStringId]);
         backendIdsToFontData.set(doc.nodes.backendNodeId[nodeIndex], {
           fontSize,
-          textLength: getNodeTextLength(text),
+          textLength: getTextLength(text),
         });
       }
     }

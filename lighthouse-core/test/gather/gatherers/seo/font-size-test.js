@@ -13,9 +13,7 @@ let fontSizeGather;
 const TEXT_NODE_TYPE = 3;
 const smallText = ' body sm𝐀ll text ';
 const bigText = 'body 𝐁ig text';
-const failingText = 'failing text 💩';
 const bodyNode = {nodeId: 3, backendNodeId: 102, nodeName: 'BODY', parentId: 1, fontSize: '10px'};
-const failingNode = {nodeId: 10, backendNodeId: 109, nodeName: 'P', parentId: 3};
 const nodes = [
   {nodeId: 1, backendNodeId: 100, nodeName: 'HTML'},
   {nodeId: 2, backendNodeId: 101, nodeName: 'HEAD', parentId: 1},
@@ -50,14 +48,6 @@ const nodes = [
     nodeType: TEXT_NODE_TYPE,
     parentId: 8,
   },
-  failingNode,
-  {
-    nodeId: 11,
-    backendNodeId: 110,
-    nodeValue: failingText,
-    nodeType: TEXT_NODE_TYPE,
-    parentId: 10,
-  },
 ];
 
 const stringsMap = {};
@@ -81,7 +71,7 @@ const snapshot = {
       layout: {
         nodeIndex: nodes.map((_, i) => i),
         styles: nodes.map(node => [
-          getOrCreateStringIndex(`${node.parentId === failingNode.nodeId ? 10 : 20}px`),
+          getOrCreateStringIndex(`${node.nodeValue === smallText ? 10 : 20}px`),
         ]),
         text: nodes.map(node => getOrCreateStringIndex(node.nodeValue)),
       },
@@ -127,11 +117,10 @@ describe('Font size gatherer', () => {
     };
 
     const artifact = await fontSizeGather.afterPass({driver});
-    const expectedFailingTextLength = Array.from(failingText.trim()).length;
+    const expectedFailingTextLength = Array.from(smallText.trim()).length;
     const expectedTotalTextLength =
       Array.from(smallText.trim()).length +
-      Array.from(bigText.trim()).length +
-      Array.from(failingText.trim()).length;
+      Array.from(bigText.trim()).length;
     const expectedAnalyzedFailingTextLength = expectedFailingTextLength;
 
     expect(artifact).toEqual({
@@ -141,7 +130,7 @@ describe('Font size gatherer', () => {
       analyzedFailingNodesData: [
         {
           fontSize: 10,
-          node: nodes.find(node => node.nodeId === 10),
+          node: bodyNode,
           textLength: expectedFailingTextLength,
         },
       ],
