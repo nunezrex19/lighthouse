@@ -141,6 +141,18 @@ describe('ManifestValues computed artifact', () => {
         const iconResults = results.allChecks.filter(i => i.id.includes('Icons'));
         assert.equal(iconResults.every(i => i.passing === false), true);
       });
+
+      it('fails when a manifest icon fails to fetch icon', async () => {
+        const manifestSrc = JSON.stringify({
+          icons: [{
+            src: 'icon.png',
+          }],
+        });
+        const WebAppManifest = noUrlManifestParser(manifestSrc);
+        WebAppManifest.installabilityErrors.push('Downloaded icon was empty or corrupted');
+        const results = await ManifestValues.request(WebAppManifest, getMockContext());
+        expect(results.allChecks.map(r => r.id)).toContain('fetchesIcon');
+      });
     });
 
     describe('icons at least X size check', () => {
