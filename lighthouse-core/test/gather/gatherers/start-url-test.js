@@ -66,11 +66,13 @@ describe('StartUrl Gatherer', () => {
 
     const passContext = {
       baseArtifacts: {
-        WebAppManifest: parseManifest(
-          'this is invalid',
-          'https://example.com/manifest.json',
-          'https://example.com/'
-        ),
+        WebAppManifest: {
+          manifest: parseManifest(
+            'this is invalid',
+            'https://example.com/manifest.json',
+            'https://example.com/'),
+          installabilityErrors: [],
+        },
       },
       driver: mockDriver,
     };

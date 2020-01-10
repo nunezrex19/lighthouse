@@ -1550,12 +1550,19 @@ describe('GatherRunner', function() {
     });
 
     it('should parse the manifest when found', async () => {
+      // https://github.com/GoogleChrome/lighthouse/pull/10136 will allow
+      // this to be mocked soon.
+      passContext.driver = {
+        ...fakeDriver,
+        sendCommand: () => Promise.resolve([]),
+      };
+
       const manifest = {name: 'App'};
       const getAppManifest = jest.spyOn(fakeDriver, 'getAppManifest');
       getAppManifest.mockResolvedValueOnce({data: JSON.stringify(manifest), url: MANIFEST_URL});
       const result = await GatherRunner.getWebAppManifest(passContext);
-      expect(result).toHaveProperty('raw', JSON.stringify(manifest));
-      expect(result.value).toMatchObject({
+      expect(result.manifest).toHaveProperty('raw', JSON.stringify(manifest));
+      expect(result.manifest.value).toMatchObject({
         name: {value: 'App', raw: 'App'},
         start_url: {value: passContext.url, raw: undefined},
       });

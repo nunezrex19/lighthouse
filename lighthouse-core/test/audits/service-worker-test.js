@@ -47,20 +47,20 @@ function createSWArtifact(swOpts) {
  * Create a set of artifacts for the ServiceWorker audit.
  * @param {Array<{scriptURL: string, status: string, scopeURL?: string}>} swOpts
  * @param {string} finalUrl
- * @param {{}}} manifestJson WebAppManifest object or null if no manifest desired.
+ * @param {{}|string|null} manifestJsonOrObject WebAppManifest object or string or null if no manifest desired.
  */
-function createArtifacts(swOpts, finalUrl, manifestJson) {
+function createArtifacts(swOpts, finalUrl, manifestJsonOrObject) {
   const manifestUrl = getBaseDirectory(finalUrl) + 'manifest.json';
   let WebAppManifest;
-  if (manifestJson === null) {
+  if (manifestJsonOrObject === null) {
     WebAppManifest = null;
-  } else if (typeof manifestJson === 'object') {
+  } else {
+    const manifestJson = typeof manifestJsonOrObject === 'object' ?
+      JSON.stringify(manifestJsonOrObject) : manifestJsonOrObject;
     WebAppManifest = {
-      manifest: manifestParser(JSON.stringify(manifestJson), manifestUrl, finalUrl),
+      manifest: manifestParser(manifestJson, manifestUrl, finalUrl),
       installabilityErrors: [],
     };
-  } else {
-    throw new Error('unsupported test manifest format');
   }
 
   return {
@@ -284,9 +284,7 @@ describe('Offline: service worker audit', () => {
       status: 'activated',
       scriptURL: 'https://example.com/sw.js',
     }];
-
-    const artifacts = createArtifacts(swOpts, finalUrl, {});
-    artifacts.WebAppManifest = manifestParser('{,;}', finalUrl, finalUrl);
+    const artifacts = createArtifacts(swOpts, finalUrl, '{,;}');
 
     const output = ServiceWorker.audit(artifacts);
     assert.strictEqual(output.score, 0);
