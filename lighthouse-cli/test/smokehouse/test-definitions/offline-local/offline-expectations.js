@@ -103,18 +103,23 @@ module.exports = [
   {
     artifacts: {
       WebAppManifest: {
-        value: {
-          icons: {
-            value: [
-              {value: {src: {value: 'http://localhost:10503/launcher-icon-0-75x.png'}}, warning: 'Error fetching icon'},
-              {value: {src: {value: 'http://localhost:10503/launcher-icon-1x.png'}}, warning: 'Error fetching icon'},
-              {value: {src: {value: 'http://localhost:10503/launcher-icon-1-5x.png'}}, warning: 'Error fetching icon'},
-              {value: {src: {value: 'http://localhost:10503/launcher-icon-2x.png'}}, warning: 'Error fetching icon'},
-              {value: {src: {value: 'http://localhost:10503/launcher-icon-3x.png'}}, warning: 'Error fetching icon'},
-              {value: {src: {value: 'http://localhost:10503/launcher-icon-4x.png'}}, warning: undefined},
-            ],
+        manifest: {
+          value: {
+            icons: {
+              value: [
+                {value: {src: {value: 'http://localhost:10503/launcher-icon-0-75x.png'}}},
+                {value: {src: {value: 'http://localhost:10503/launcher-icon-1x.png'}}},
+                {value: {src: {value: 'http://localhost:10503/launcher-icon-1-5x.png'}}},
+                {value: {src: {value: 'http://localhost:10503/launcher-icon-2x.png'}}},
+                {value: {src: {value: 'http://localhost:10503/launcher-icon-3x.png'}}},
+                {value: {src: {value: 'http://localhost:10503/launcher-icon-4x.png'}}},
+              ],
+            },
           },
         },
+        installabilityErrors: [
+          'Downloaded icon was empty or corrupted',
+        ],
       },
     },
     lhr: {
@@ -146,7 +151,8 @@ module.exports = [
           scoreDisplayMode: 'notApplicable',
         },
         'installable-manifest': {
-          score: 1,
+          score: 0,
+          explanation: 'Failures: Manifest icon failed to be fetched.',
         },
         'splash-screen': {
           score: 0,
