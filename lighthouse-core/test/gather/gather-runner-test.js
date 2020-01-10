@@ -267,6 +267,7 @@ describe('GatherRunner', function() {
     await GatherRunner.setupDriver(driver, {
       settings: {
         emulatedFormFactor: 'mobile',
+        throttlingMethod: 'provided',
         internalDisableDeviceScreenEmulation: false,
       },
     });
@@ -298,54 +299,6 @@ describe('GatherRunner', function() {
     await GatherRunner.setupDriver(driver, {settings: getSettings('none')});
     expect(() =>
       connectionStub.sendCommand.findInvocation('Emulation.setDeviceMetricsOverride')).toThrow();
-  });
-
-  it('stops throttling when not devtools', async () => {
-    // const tests = {
-    //   calledDeviceEmulation: false,
-    //   calledNetworkEmulation: false,
-    //   calledCpuEmulation: false,
-    // };
-    // const createEmulationCheck = variable => (...args) => {
-    //   tests[variable] = args;
-    //   return true;
-    // };
-    // const driver = getMockedEmulationDriver(
-    //   createEmulationCheck('calledDeviceEmulation'),
-    //   createEmulationCheck('calledNetworkEmulation'),
-    //   createEmulationCheck('calledCpuEmulation')
-    // );
-
-    // return GatherRunner.setupDriver(driver, {
-    //   settings: {
-    //     emulatedFormFactor: 'mobile',
-    //     throttlingMethod: 'provided',
-    //     internalDisableDeviceScreenEmulation: false,
-    //   },
-    // }).then(_ => {
-    //   assert.ok(tests.calledDeviceEmulation, 'did not call device emulation');
-    //   assert.deepEqual(tests.calledNetworkEmulation, [{
-    //     latency: 0, downloadThroughput: 0, uploadThroughput: 0, offline: false,
-    //   }]);
-    //   assert.ok(!tests.calledCpuEmulation, 'called CPU emulation');
-    // });
-
-    // ? ... this test is the same as above..
-
-    await GatherRunner.setupDriver(driver, {
-      settings: {
-        emulatedFormFactor: 'mobile',
-        throttlingMethod: 'provided',
-        internalDisableDeviceScreenEmulation: false,
-      },
-    });
-
-    connectionStub.sendCommand.findInvocation('Emulation.setDeviceMetricsOverride');
-    expect(connectionStub.sendCommand.findInvocation('Network.emulateNetworkConditions')).toEqual({
-      latency: 0, downloadThroughput: 0, uploadThroughput: 0, offline: false,
-    });
-    expect(() =>
-      connectionStub.sendCommand.findInvocation('Emulation.setCPUThrottlingRate')).toThrow();
   });
 
   it('sets throttling according to settings', async () => {
